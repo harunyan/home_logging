@@ -238,7 +238,8 @@ func (s *Storage) GetSummary() models.SummaryStats {
 				}
 			}
 
-			if (ev.DeviceType == "scale" || ev.EventType == "weight_measured") && ev.WeightG > 500 { // ignore empty scale
+			// 猫の体重測定 (DeviceType が scale かつ 1000g 以上の場合のみ)
+			if ev.DeviceType == "scale" && ev.EventType == "weight_measured" && ev.WeightG >= 1000 {
 				if ev.Timestamp.After(summary.LatestWeightTime) {
 					summary.LatestCatWeightG = ev.WeightG
 					summary.LatestWeightTime = ev.Timestamp

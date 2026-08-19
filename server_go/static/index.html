@@ -409,6 +409,9 @@
         document.getElementById('sum-cat-weight').innerHTML = `${s.latest_cat_weight_g.toFixed(1)} <span style="font-size: 1rem; font-weight: normal;">g</span> (${(s.latest_cat_weight_g / 1000).toFixed(2)} kg)`;
         const dt = new Date(s.latest_weight_time);
         document.getElementById('sum-cat-time').textContent = `測定: ${dt.toLocaleTimeString()}`;
+      } else {
+        document.getElementById('sum-cat-weight').innerHTML = `-- <span style="font-size: 1rem; font-weight: normal;">g</span>`;
+        document.getElementById('sum-cat-time').textContent = `未測定`;
       }
       document.getElementById('sum-meals-count').innerHTML = `${s.today_meals_count} <span style="font-size: 1rem; font-weight: normal;">回</span>`;
       document.getElementById('sum-food-eaten').textContent = `食べた量: ${s.today_food_eaten_g.toFixed(1)}g`;
@@ -418,6 +421,9 @@
         const humStr = s.latest_humidity_pct !== undefined && s.latest_humidity_pct !== null ? `${s.latest_humidity_pct.toFixed(1)}%` : '--%';
         const pressStr = s.latest_pressure_hpa !== undefined && s.latest_pressure_hpa !== null ? `${s.latest_pressure_hpa.toFixed(0)} hPa` : '-- hPa';
         document.getElementById('sum-env-sub').textContent = `湿度: ${humStr} / 気圧: ${pressStr}`;
+      } else {
+        document.getElementById('sum-env-temp').innerHTML = `--.- <span style="font-size: 1rem; font-weight: normal;">°C</span>`;
+        document.getElementById('sum-env-sub').textContent = `湿度: --% / 気圧: -- hPa`;
       }
 
       document.getElementById('sum-events-count').textContent = s.total_events_today;
