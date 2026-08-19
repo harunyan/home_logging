@@ -6,23 +6,30 @@
   <title>🐾 Cat Home Logging Cloud | veris.jp</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
   <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --bg-primary: #0d1117;
-      --bg-secondary: #161b22;
-      --bg-card: rgba(22, 27, 34, 0.88);
-      --border-color: rgba(240, 246, 252, 0.1);
-      --accent-orange: #f0883e;
-      --accent-cyan: #38bdf8;
-      --accent-green: #3fb950;
-      --accent-purple: #a371f7;
-      --accent-pink: #f43f5e;
-      --text-main: #f0f6fc;
-      --text-muted: #8b949e;
-      --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      /* Matching veris.jp Slate Theme */
+      --bg-slate-950: #0b0f19;
+      --bg-slate-900: #0f172a;
+      --bg-slate-850: #131d33;
+      --bg-slate-800: #1e293b;
+      --bg-card: rgba(30, 41, 59, 0.72);
+      --border-slate: rgba(148, 163, 184, 0.12);
+      --border-focus: rgba(56, 189, 248, 0.4);
+      
+      --accent-sky: #38bdf8;
+      --accent-cyan: #22d3ee;
+      --accent-orange: #fb923c;
+      --accent-emerald: #34d399;
+      --accent-violet: #a78bfa;
+      
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+      --card-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.45), 0 4px 6px -2px rgba(0, 0, 0, 0.25);
     }
 
     * {
@@ -32,16 +39,20 @@
     }
 
     body {
-      font-family: 'Outfit', 'Noto Sans JP', sans-serif;
-      background: radial-gradient(circle at 10% 20%, #1a1e29 0%, #0d1117 90%);
+      font-family: 'Outfit', 'Noto Sans JP', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background-color: var(--bg-slate-900);
+      background-image: 
+        radial-gradient(at 10% 15%, rgba(56, 189, 248, 0.08) 0px, transparent 40%),
+        radial-gradient(at 90% 85%, rgba(251, 146, 60, 0.05) 0px, transparent 40%),
+        radial-gradient(circle at 50% 50%, var(--bg-slate-900) 0%, var(--bg-slate-950) 100%);
       color: var(--text-main);
       min-height: 100vh;
-      padding: 20px;
+      padding: 24px 16px;
       line-height: 1.5;
     }
 
     .container {
-      max-width: 1300px;
+      max-width: 1280px;
       margin: 0 auto;
     }
 
@@ -49,11 +60,11 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid var(--border-color);
+      margin-bottom: 24px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-slate);
       flex-wrap: wrap;
-      gap: 12px;
+      gap: 16px;
     }
 
     .brand {
@@ -64,7 +75,7 @@
 
     .brand-icon {
       font-size: 2.2rem;
-      background: linear-gradient(135deg, #f0883e, #ec4899);
+      background: linear-gradient(135deg, var(--accent-sky), var(--accent-cyan));
       -webkit-background-clip: text;
       background-clip: text;
       -webkit-text-fill-color: transparent;
@@ -72,19 +83,21 @@
     }
 
     h1 {
-      font-size: 1.5rem;
+      font-size: 1.55rem;
       font-weight: 700;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.025em;
+      color: #ffffff;
     }
 
     .server-tag {
-      font-size: 0.75rem;
-      background: rgba(56, 189, 248, 0.15);
-      color: var(--accent-cyan);
+      font-size: 0.72rem;
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent-sky);
       padding: 3px 10px;
       border-radius: 9999px;
-      border: 1px solid rgba(56, 189, 248, 0.3);
+      border: 1px solid rgba(56, 189, 248, 0.25);
       font-family: 'JetBrains Mono', monospace;
+      font-weight: 500;
     }
 
     .header-actions {
@@ -94,163 +107,181 @@
     }
 
     .btn {
-      background: var(--bg-secondary);
+      background: rgba(30, 41, 59, 0.8);
       color: var(--text-main);
-      border: 1px solid var(--border-color);
-      padding: 6px 14px;
+      border: 1px solid var(--border-slate);
+      padding: 7px 16px;
       border-radius: 8px;
       cursor: pointer;
       font-size: 0.82rem;
       font-weight: 500;
-      transition: all 0.2s ease;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
       display: inline-flex;
       align-items: center;
       gap: 6px;
+      backdrop-filter: blur(8px);
     }
 
     .btn:hover {
-      background: rgba(240, 246, 252, 0.1);
-      border-color: rgba(240, 246, 252, 0.3);
+      background: rgba(51, 65, 85, 0.8);
+      border-color: rgba(148, 163, 184, 0.3);
+      color: #ffffff;
+      transform: translateY(-1px);
     }
 
     /* Summary Grid */
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-      gap: 14px;
-      margin-bottom: 20px;
+      grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
     }
 
     .card {
       background: var(--bg-card);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      padding: 16px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-slate);
+      border-radius: 14px;
+      padding: 18px;
       box-shadow: var(--card-shadow);
       position: relative;
       overflow: hidden;
-      transition: transform 0.2s ease;
+      transition: transform 0.2s ease, border-color 0.2s ease;
     }
 
     .card:hover {
       transform: translateY(-2px);
+      border-color: rgba(56, 189, 248, 0.3);
     }
 
     .card-title {
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       color: var(--text-muted);
-      margin-bottom: 6px;
+      margin-bottom: 8px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      font-weight: 500;
     }
 
     .card-value {
-      font-size: 1.7rem;
+      font-size: 1.8rem;
       font-weight: 700;
       font-family: 'JetBrains Mono', monospace;
       margin-bottom: 4px;
+      letter-spacing: -0.02em;
     }
 
     .card-subtext {
       font-size: 0.72rem;
-      color: var(--text-muted);
+      color: var(--text-dim);
     }
 
     .val-orange { color: var(--accent-orange); }
-    .val-cyan { color: var(--accent-cyan); }
-    .val-green { color: var(--accent-green); }
-    .val-purple { color: var(--accent-purple); }
+    .val-sky { color: var(--accent-sky); }
+    .val-emerald { color: var(--accent-emerald); }
+    .val-violet { color: var(--accent-violet); }
 
     /* Graph Section */
     .graph-section {
       background: var(--bg-card);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-color);
-      border-radius: 14px;
-      padding: 18px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-slate);
+      border-radius: 16px;
+      padding: 20px;
       box-shadow: var(--card-shadow);
-      margin-bottom: 20px;
+      margin-bottom: 24px;
     }
 
     .graph-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 14px;
+      margin-bottom: 16px;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 12px;
     }
 
     .tabs {
       display: flex;
       gap: 6px;
-      background: rgba(13, 17, 23, 0.8);
+      background: rgba(15, 23, 42, 0.8);
       padding: 4px;
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      border: 1px solid var(--border-slate);
     }
 
     .tab-btn {
       background: transparent;
       border: none;
       color: var(--text-muted);
-      padding: 6px 12px;
+      padding: 6px 14px;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 0.8rem;
+      font-size: 0.82rem;
       font-weight: 600;
       transition: all 0.2s ease;
     }
 
+    .tab-btn:hover {
+      color: var(--text-main);
+    }
+
     .tab-btn.active {
-      background: var(--bg-secondary);
-      color: var(--accent-cyan);
+      background: var(--bg-slate-800);
+      color: var(--accent-sky);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
     }
 
     .range-selector {
       display: flex;
       gap: 4px;
-      background: rgba(13, 17, 23, 0.8);
+      background: rgba(15, 23, 42, 0.8);
       padding: 4px;
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
+      border-radius: 10px;
+      border: 1px solid var(--border-slate);
     }
 
     .range-btn {
       background: transparent;
       border: none;
       color: var(--text-muted);
-      padding: 4px 8px;
+      padding: 4px 10px;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 0.72rem;
+      font-size: 0.75rem;
       font-weight: 500;
       transition: all 0.2s ease;
     }
 
+    .range-btn:hover {
+      color: var(--text-main);
+    }
+
     .range-btn.active {
-      background: var(--accent-cyan);
-      color: #0d1117;
+      background: var(--accent-sky);
+      color: #0f172a;
       font-weight: 700;
     }
 
     .chart-container {
       position: relative;
-      height: 300px;
+      height: 320px;
       width: 100%;
     }
 
     /* History Table */
     .table-container {
       background: var(--bg-card);
-      backdrop-filter: blur(12px);
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-slate);
+      border-radius: 14px;
       overflow: hidden;
       box-shadow: var(--card-shadow);
-      max-height: 380px;
+      max-height: 400px;
       overflow-y: auto;
     }
 
@@ -258,15 +289,15 @@
       width: 100%;
       border-collapse: collapse;
       text-align: left;
-      font-size: 0.8rem;
+      font-size: 0.82rem;
     }
 
     th {
-      background: rgba(255, 255, 255, 0.04);
-      padding: 10px 12px;
+      background: rgba(15, 23, 42, 0.85);
+      padding: 12px 14px;
       color: var(--text-muted);
       font-weight: 600;
-      border-bottom: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-slate);
       position: sticky;
       top: 0;
       backdrop-filter: blur(8px);
@@ -274,8 +305,8 @@
     }
 
     td {
-      padding: 8px 12px;
-      border-bottom: 1px solid rgba(240, 246, 252, 0.05);
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.06);
     }
 
     tr:hover td {
@@ -284,20 +315,20 @@
 
     .badge {
       display: inline-block;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
       font-weight: 600;
       font-family: 'JetBrains Mono', monospace;
     }
 
-    .badge-feeder { background: rgba(240, 136, 62, 0.15); color: var(--accent-orange); }
-    .badge-scale { background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan); }
-    .badge-sensor { background: rgba(163, 113, 247, 0.15); color: var(--accent-purple); }
+    .badge-feeder { background: rgba(251, 146, 60, 0.12); color: var(--accent-orange); border: 1px solid rgba(251, 146, 60, 0.25); }
+    .badge-scale { background: rgba(56, 189, 248, 0.12); color: var(--accent-sky); border: 1px solid rgba(56, 189, 248, 0.25); }
+    .badge-sensor { background: rgba(167, 139, 250, 0.12); color: var(--accent-violet); border: 1px solid rgba(167, 139, 250, 0.25); }
 
     .empty-state {
       text-align: center;
-      padding: 30px;
+      padding: 36px;
       color: var(--text-muted);
     }
   </style>
@@ -309,14 +340,14 @@
         <span class="brand-icon">🐾</span>
         <div>
           <h1>Cat Home Logging Cloud</h1>
-          <div style="display: flex; gap: 8px; align-items: center; margin-top: 2px;">
+          <div style="display: flex; gap: 8px; align-items: center; margin-top: 3px;">
             <span class="server-tag">veris.jp Cloud Host</span>
             <span id="refresh-status" style="font-size: 0.72rem; color: var(--text-muted);">● 自動更新中 (1分)</span>
           </div>
         </div>
       </div>
       <div class="header-actions">
-        <button class="btn" onclick="fetchCloudData()">🔄 更新</button>
+        <button class="btn" onclick="fetchCloudData()">🔄 手動更新</button>
       </div>
     </header>
 
@@ -324,28 +355,28 @@
     <div class="summary-grid">
       <div class="card">
         <div class="card-title"><span>餌皿の現在残量</span> <span>🍽️</span></div>
-        <div class="card-value val-orange" id="sum-food-weight">-- <span style="font-size: 0.9rem; font-weight: normal;">g</span></div>
+        <div class="card-value val-orange" id="sum-food-weight">-- <span style="font-size: 0.95rem; font-weight: normal;">g</span></div>
         <div class="card-subtext" id="sum-food-time">未測定</div>
       </div>
       <div class="card">
         <div class="card-title"><span>猫の最新体重</span> <span>⚖️</span></div>
-        <div class="card-value val-cyan" id="sum-cat-weight">-- <span style="font-size: 0.9rem; font-weight: normal;">g</span></div>
+        <div class="card-value val-sky" id="sum-cat-weight">-- <span style="font-size: 0.95rem; font-weight: normal;">g</span></div>
         <div class="card-subtext" id="sum-cat-time">未測定</div>
       </div>
       <div class="card">
         <div class="card-title"><span>室内温湿度 (ENV IV)</span> <span>🌡️</span></div>
-        <div class="card-value val-green" id="sum-env-temp">--.- <span style="font-size: 0.9rem; font-weight: normal;">°C</span></div>
+        <div class="card-value val-emerald" id="sum-env-temp">--.- <span style="font-size: 0.95rem; font-weight: normal;">°C</span></div>
         <div class="card-subtext" id="sum-env-sub">湿度: --% / 気圧: -- hPa</div>
       </div>
       <div class="card">
         <div class="card-title"><span>本日の食事回数</span> <span>🥣</span></div>
-        <div class="card-value val-orange" id="sum-meals-count">0 <span style="font-size: 0.9rem; font-weight: normal;">回</span></div>
+        <div class="card-value val-orange" id="sum-meals-count">0 <span style="font-size: 0.95rem; font-weight: normal;">回</span></div>
         <div class="card-subtext" id="sum-food-eaten">食べた量: 0.0g</div>
       </div>
       <div class="card">
         <div class="card-title"><span>本日の総受信数</span> <span>📡</span></div>
-        <div class="card-value val-purple" id="sum-events-count">0</div>
-        <div class="card-subtext">ログ件数</div>
+        <div class="card-value val-violet" id="sum-events-count">0</div>
+        <div class="card-subtext">ログレコード数</div>
       </div>
     </div>
 
@@ -353,7 +384,7 @@
     <div class="graph-section">
       <div class="graph-header">
         <div class="tabs">
-          <button class="tab-btn active" id="tab-weight" onclick="switchTab('weight')">🍽️ 餌皿残量</button>
+          <button class="tab-btn active" id="tab-weight" onclick="switchTab('weight')">🍽️ 餌皿残量・食事</button>
           <button class="tab-btn" id="tab-env" onclick="switchTab('env')">🌡️ 室温・湿度</button>
           <button class="tab-btn" id="tab-pressure" onclick="switchTab('pressure')">⏱️ 気圧</button>
         </div>
@@ -397,8 +428,8 @@
     let currentRange = '24h';
     let cloudEvents = [];
 
-    Chart.defaults.color = '#8b949e';
-    Chart.defaults.borderColor = 'rgba(240, 246, 252, 0.08)';
+    Chart.defaults.color = '#94a3b8';
+    Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.08)';
     Chart.defaults.font.family = "'Outfit', 'Noto Sans JP', sans-serif";
 
     function initChart() {
@@ -411,19 +442,19 @@
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
-            legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true } },
+            legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, color: '#94a3b8' } },
             tooltip: {
-              backgroundColor: 'rgba(22, 27, 34, 0.95)',
-              titleColor: '#f0f6fc',
-              bodyColor: '#f0f6fc',
-              borderColor: 'rgba(240, 246, 252, 0.15)',
+              backgroundColor: 'rgba(15, 23, 42, 0.95)',
+              titleColor: '#ffffff',
+              bodyColor: '#f1f5f9',
+              borderColor: 'rgba(56, 189, 248, 0.25)',
               borderWidth: 1,
-              padding: 8
+              padding: 10
             }
           },
           scales: {
-            x: { grid: { color: 'rgba(240, 246, 252, 0.05)' }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
-            y: { grid: { color: 'rgba(240, 246, 252, 0.05)' } }
+            x: { grid: { color: 'rgba(148, 163, 184, 0.05)' }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
+            y: { grid: { color: 'rgba(148, 163, 184, 0.05)' } }
           }
         }
       });
@@ -440,7 +471,7 @@
           cloudEvents = data.events || [];
           updateTable(cloudEvents.slice(0, 50));
           renderChart();
-          document.getElementById('refresh-status').textContent = '● 自動更新中 (10s)';
+          document.getElementById('refresh-status').textContent = '● 自動更新中 (1分)';
         }
       } catch (err) {
         console.error('Fetch error:', err);
@@ -452,7 +483,7 @@
       if (!s) return;
 
       if (s.latest_food_weight_g !== null && s.latest_food_weight_g !== undefined) {
-        document.getElementById('sum-food-weight').innerHTML = `${Number(s.latest_food_weight_g).toFixed(1)} <span style="font-size: 0.9rem; font-weight: normal;">g</span>`;
+        document.getElementById('sum-food-weight').innerHTML = `${Number(s.latest_food_weight_g).toFixed(1)} <span style="font-size: 0.95rem; font-weight: normal;">g</span>`;
         if (s.latest_food_time) {
           const dt = new Date(s.latest_food_time);
           document.getElementById('sum-food-time').textContent = `更新: ${dt.toLocaleTimeString()}`;
@@ -460,21 +491,21 @@
       }
 
       if (s.latest_cat_weight_g !== null && s.latest_cat_weight_g !== undefined && s.latest_cat_weight_g > 0) {
-        document.getElementById('sum-cat-weight').innerHTML = `${Number(s.latest_cat_weight_g).toFixed(1)} <span style="font-size: 0.9rem; font-weight: normal;">g</span>`;
+        document.getElementById('sum-cat-weight').innerHTML = `${Number(s.latest_cat_weight_g).toFixed(1)} <span style="font-size: 0.95rem; font-weight: normal;">g</span>`;
         if (s.latest_weight_time) {
           const dt = new Date(s.latest_weight_time);
           document.getElementById('sum-cat-time').textContent = `測定: ${dt.toLocaleTimeString()}`;
         }
       } else {
-        document.getElementById('sum-cat-weight').innerHTML = `-- <span style="font-size: 0.9rem; font-weight: normal;">g</span>`;
+        document.getElementById('sum-cat-weight').innerHTML = `-- <span style="font-size: 0.95rem; font-weight: normal;">g</span>`;
         document.getElementById('sum-cat-time').textContent = `未測定`;
       }
 
-      document.getElementById('sum-meals-count').innerHTML = `${s.today_meals_count} <span style="font-size: 0.9rem; font-weight: normal;">回</span>`;
+      document.getElementById('sum-meals-count').innerHTML = `${s.today_meals_count} <span style="font-size: 0.95rem; font-weight: normal;">回</span>`;
       document.getElementById('sum-food-eaten').textContent = `食べた量: ${s.today_food_eaten_g}g`;
 
       if (s.latest_temp_c !== null && s.latest_temp_c !== undefined) {
-        document.getElementById('sum-env-temp').innerHTML = `${Number(s.latest_temp_c).toFixed(1)} <span style="font-size: 0.9rem; font-weight: normal;">°C</span>`;
+        document.getElementById('sum-env-temp').innerHTML = `${Number(s.latest_temp_c).toFixed(1)} <span style="font-size: 0.95rem; font-weight: normal;">°C</span>`;
         const humStr = s.latest_humidity_pct ? `${Number(s.latest_humidity_pct).toFixed(0)}%` : '--%';
         const pressStr = s.latest_pressure_hpa ? `${Number(s.latest_pressure_hpa).toFixed(0)} hPa` : '-- hPa';
         document.getElementById('sum-env-sub').textContent = `湿度: ${humStr} / 気圧: ${pressStr}`;
@@ -511,16 +542,17 @@
         cloudChart.data.datasets = [{
           label: '餌皿残量 (g)',
           data: filtered.map(e => e.weight_g !== null ? e.weight_g : null),
-          borderColor: '#f0883e',
-          backgroundColor: 'rgba(240, 136, 62, 0.15)',
+          borderColor: '#fb923c',
+          backgroundColor: 'rgba(251, 146, 60, 0.15)',
           fill: true,
           tension: 0.3,
-          pointRadius: 2,
+          pointRadius: 3,
+          pointBackgroundColor: '#fb923c',
           borderWidth: 2
         }];
         cloudChart.options.scales = {
-          x: { grid: { color: 'rgba(240, 246, 252, 0.05)' } },
-          y: { title: { display: true, text: '重量 (g)', color: '#f0883e' }, grid: { color: 'rgba(240, 246, 252, 0.05)' }, suggestedMin: 0 }
+          x: { grid: { color: 'rgba(148, 163, 184, 0.05)' } },
+          y: { title: { display: true, text: '重量 (g)', color: '#fb923c' }, grid: { color: 'rgba(148, 163, 184, 0.05)' }, suggestedMin: 0 }
         };
 
       } else if (currentTab === 'env') {
@@ -529,8 +561,8 @@
           {
             label: '室温 (°C)',
             data: filtered.map(e => e.temperature_c !== null ? e.temperature_c : null),
-            borderColor: '#3fb950',
-            backgroundColor: 'rgba(63, 185, 80, 0.1)',
+            borderColor: '#34d399',
+            backgroundColor: 'rgba(52, 211, 153, 0.1)',
             yAxisID: 'yTemp',
             tension: 0.3,
             borderWidth: 2
@@ -546,8 +578,8 @@
           }
         ];
         cloudChart.options.scales = {
-          x: { grid: { color: 'rgba(240, 246, 252, 0.05)' } },
-          yTemp: { type: 'linear', position: 'left', title: { display: true, text: '温度 (°C)', color: '#3fb950' }, grid: { color: 'rgba(240, 246, 252, 0.05)' } },
+          x: { grid: { color: 'rgba(148, 163, 184, 0.05)' } },
+          yTemp: { type: 'linear', position: 'left', title: { display: true, text: '温度 (°C)', color: '#34d399' }, grid: { color: 'rgba(148, 163, 184, 0.05)' } },
           yHum: { type: 'linear', position: 'right', title: { display: true, text: '湿度 (%)', color: '#38bdf8' }, grid: { drawOnChartArea: false }, suggestedMin: 0, suggestedMax: 100 }
         };
 
@@ -556,15 +588,15 @@
         cloudChart.data.datasets = [{
           label: '気圧 (hPa)',
           data: filtered.map(e => e.pressure_hpa !== null ? e.pressure_hpa : null),
-          borderColor: '#a371f7',
-          backgroundColor: 'rgba(163, 113, 247, 0.15)',
+          borderColor: '#a78bfa',
+          backgroundColor: 'rgba(167, 139, 250, 0.15)',
           fill: true,
           tension: 0.3,
           borderWidth: 2
         }];
         cloudChart.options.scales = {
-          x: { grid: { color: 'rgba(240, 246, 252, 0.05)' } },
-          y: { title: { display: true, text: '気圧 (hPa)', color: '#a371f7' }, grid: { color: 'rgba(240, 246, 252, 0.05)' } }
+          x: { grid: { color: 'rgba(148, 163, 184, 0.05)' } },
+          y: { title: { display: true, text: '気圧 (hPa)', color: '#a78bfa' }, grid: { color: 'rgba(148, 163, 184, 0.05)' } }
         };
       }
 
@@ -594,13 +626,13 @@
 
         return `
           <tr>
-            <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">${timeStr}</td>
+            <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;">${timeStr}</td>
             <td><strong>${escapeHtml(e.device_id)}</strong></td>
             <td><span class="badge badge-${e.device_type || 'sensor'}">${escapeHtml(e.device_type)}</span></td>
             <td>${escapeHtml(e.event_type)}</td>
             <td style="text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 600;">${weightStr}</td>
-            <td style="font-size: 0.75rem; color: var(--text-muted);">${envStr}</td>
-            <td style="color: var(--text-muted); font-size: 0.75rem;">${escapeHtml(e.note || '')}</td>
+            <td style="font-size: 0.78rem; color: var(--text-muted);">${envStr}</td>
+            <td style="color: var(--text-muted); font-size: 0.78rem;">${escapeHtml(e.note || '')}</td>
           </tr>
         `;
       }).join('');
