@@ -117,6 +117,12 @@ class ScaleMonitor:
                 w = self.hx.get_weight(times=3)
                 now = time.time()
 
+                # Filter out obvious sensor glitch values for scale
+                if w < 0 or w > 25000:
+                    print(f"⚠️ [ScaleMonitor] Ignored glitch reading: {w:.1f}g")
+                    time.sleep(0.5)
+                    continue
+
                 if w >= self.threshold:
                     if not cat_present:
                         print(f"🐾 Cat stepped onto scale! (Initial: {w:.1f}g)")
@@ -138,18 +144,22 @@ class ScaleMonitor:
                         valid_samples = sorted_samples[2:-2] if len(sorted_samples) >= 8 else sorted_samples
                         measured_weight = sum(valid_samples) / len(valid_samples)
 
-                        print(f"✅ Cat left scale. Weight: {measured_weight:.1f}g (Duration: {duration:.1f}s)")
-                        event_payload = {
-                            "device_id": self.device_id,
-                            "device_type": self.device_type,
-                            "event_type": "weight_measured",
-                            "weight_g": round(measured_weight, 2),
-                            "note": f"測定時間 {duration:.1f}秒 (サンプル数: {len(samples)})",
-                            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
-                        }
-                        if self.env_sensor:
-                            event_payload.update(self.env_sensor.read_all())
-                        self.sender.send_event(event_payload)
+                        # Range validation for cat body weight (100g to 20kg)
+                        if 100 <= measured_weight <= 20000:
+                            print(f"✅ Cat left scale. Weight: {measured_weight:.1f}g (Duration: {duration:.1f}s)")
+                            event_payload = {
+                                "device_id": self.device_id,
+                                "device_type": self.device_type,
+                                "event_type": "weight_measured",
+                                "weight_g": round(measured_weight, 2),
+                                "note": f"測定時間 {duration:.1f}秒 (サンプル数: {len(samples)})",
+                                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                            }
+                            if self.env_sensor:
+                                event_payload.update(self.env_sensor.read_all())
+                            self.sender.send_event(event_payload)
+                        else:
+                            print(f"⚠️ [ScaleMonitor] Measured weight out of realistic range ({measured_weight:.1f}g), discarded.")
                     else:
                         print("⚠️ Sampling duration too short, discarded.")
 
@@ -178,7 +188,14 @@ class ScaleMonitor:
 
 
 class FeederMonitor:
-    """Logic for Food Bowl (detects eating amount, food refills, and room environment)."""
+    """
+    Logic for Food Bowl (1kg Load Cell: 0-1000g).
+    Steady state (Bowl + Food): ~150g - 300g.
+    - 0g - 130g: Bowl removed / cleaning (ignore meal deductions).
+    - 130g - 350g: Normal steady state (idle, food level monitoring).
+    - 350g - 1000g: Cat leaning/eating on bowl or human handling (suppress level sync, wait for finish).
+    - <0g or >1000g: Hardware / ADC glitch (discard).
+    """
 
     def __init__(self, hx: HX711, sender: WinSVSender, config: Dict[str, Any], env_sensor: Optional[EnvIVSensor] = None):
         self.hx = hx
@@ -189,77 +206,114 @@ class FeederMonitor:
         self.device_id = config.get("device_id", "raspi-feeder-01")
         self.device_type = "feeder"
 
+        # Domain knowledge thresholds
+        self.loadcell_max_g = config.get("loadcell_max_g", 1000.0)
+        self.bowl_min_steady_g = config.get("bowl_min_steady_g", 130.0)  # Empty bowl threshold
+        self.bowl_max_steady_g = config.get("bowl_max_steady_g", 350.0)  # Full bowl upper bound
+
     def run_loop(self):
-        print(f"🍽️ Food Bowl Monitor active. Change threshold: {self.change_threshold}g")
+        print(f"🍽️ Food Bowl Monitor active. LoadCell: 0-{self.loadcell_max_g}g | Steady range: {self.bowl_min_steady_g}-{self.bowl_max_steady_g}g")
         
         print("安定重量を測定中...")
         baseline = self.hx.get_weight(times=10)
-        print(f"初期基準重量: {baseline:.1f}g")
+        if not (self.bowl_min_steady_g <= baseline <= self.bowl_max_steady_g):
+            print(f"⚠️ 測定値 ({baseline:.1f}g) が通常範囲外です。安全基準値 (220g) を仮設定します。")
+            baseline = 220.0
+        print(f"初期基準残量: {baseline:.1f}g")
 
         last_ping_time = time.time()
         ping_interval = self.config.get("ping_interval_sec", 60)  # 1分間隔の定期同期
         last_env_time = time.time()
         env_interval = self.config.get("env_interval_sec", 60)    # 1分間隔の環境測定
+        is_cat_eating = False
 
         while True:
             try:
                 current = self.hx.get_weight(times=5)
-                delta = current - baseline
                 now = time.time()
 
-                # Detect significant weight change (食事・補充の検知)
-                if abs(delta) >= self.change_threshold:
+                # 1. Glitch rejection (< 0g or > 1000g)
+                if current < 0.0 or current > self.loadcell_max_g:
+                    print(f"⚠️ [FeederMonitor] 通信ノイズ・外れ値を破棄: {current:.1f}g")
+                    time.sleep(0.5)
+                    continue
+
+                # 2. Bowl removed state (< 130g)
+                if current < self.bowl_min_steady_g:
+                    # Bowl is taken off for cleaning or refilling
+                    time.sleep(1.0)
+                    continue
+
+                # 3. Cat leaning on bowl / Eating in progress (350g - 1000g)
+                if current > self.bowl_max_steady_g:
+                    if not is_cat_eating:
+                        print(f"🐾 [FeederMonitor] 猫が接触・食事中を検知 (荷重: {current:.1f}g)")
+                        is_cat_eating = True
+                    time.sleep(0.5)
+                    continue
+
+                # 4. Steady state (130g - 350g)
+                delta = current - baseline
+
+                # Check if meal finished after cat was leaning, or significant steady weight change occurred
+                if is_cat_eating or abs(delta) >= self.change_threshold:
                     time.sleep(2.0)
                     stable_val = self.hx.get_weight(times=10)
-                    actual_delta = stable_val - baseline
 
-                    if actual_delta <= -self.change_threshold:
-                        eaten_amount = -actual_delta
-                        print(f"🐱 Meal finished! Eaten: {eaten_amount:.1f}g (Remaining: {stable_val:.1f}g)")
-                        payload = {
-                            "device_id": self.device_id,
-                            "device_type": self.device_type,
-                            "event_type": "meal_finished",
-                            "weight_g": round(stable_val, 2),
-                            "delta_g": round(actual_delta, 2),
-                            "note": f"喫食量: {eaten_amount:.1f}g",
-                            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
-                        }
-                        if self.env_sensor:
-                            payload.update(self.env_sensor.read_all())
-                        self.sender.send_event(payload)
-                        baseline = stable_val
+                    # Ensure the settled weight is within steady range
+                    if self.bowl_min_steady_g <= stable_val <= self.bowl_max_steady_g:
+                        actual_delta = stable_val - baseline
 
-                    elif actual_delta >= self.change_threshold:
-                        refill_amount = actual_delta
-                        print(f"🥣 Food Refilled! Added: +{refill_amount:.1f}g (Total: {stable_val:.1f}g)")
-                        payload = {
-                            "device_id": self.device_id,
-                            "device_type": self.device_type,
-                            "event_type": "refill",
-                            "weight_g": round(stable_val, 2),
-                            "delta_g": round(actual_delta, 2),
-                            "note": f"補充量: +{refill_amount:.1f}g",
-                            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
-                        }
-                        if self.env_sensor:
-                            payload.update(self.env_sensor.read_all())
-                        self.sender.send_event(payload)
-                        baseline = stable_val
+                        if actual_delta <= -self.change_threshold:
+                            eaten_amount = -actual_delta
+                            print(f"🐱 Meal finished! Eaten: {eaten_amount:.1f}g (Remaining: {stable_val:.1f}g)")
+                            payload = {
+                                "device_id": self.device_id,
+                                "device_type": self.device_type,
+                                "event_type": "meal_finished",
+                                "weight_g": round(stable_val, 2),
+                                "delta_g": round(actual_delta, 2),
+                                "note": f"喫食量: {eaten_amount:.1f}g",
+                                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                            }
+                            if self.env_sensor:
+                                payload.update(self.env_sensor.read_all())
+                            self.sender.send_event(payload)
+                            baseline = stable_val
 
-                # 1分おきの定期残量同期 (定期死活監視 ＋ 最新残量 ＋ 温湿度)
+                        elif actual_delta >= self.change_threshold:
+                            refill_amount = actual_delta
+                            print(f"🥣 Food Refilled! Added: +{refill_amount:.1f}g (Total: {stable_val:.1f}g)")
+                            payload = {
+                                "device_id": self.device_id,
+                                "device_type": self.device_type,
+                                "event_type": "refill",
+                                "weight_g": round(stable_val, 2),
+                                "delta_g": round(actual_delta, 2),
+                                "note": f"補充量: +{refill_amount:.1f}g",
+                                "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                            }
+                            if self.env_sensor:
+                                payload.update(self.env_sensor.read_all())
+                            self.sender.send_event(payload)
+                            baseline = stable_val
+
+                    is_cat_eating = False
+
+                # 1分おきの定期残量同期 (定常安定状態 130-350g の時のみ送信)
                 if now - last_ping_time >= ping_interval:
-                    payload = {
-                        "device_id": self.device_id,
-                        "device_type": self.device_type,
-                        "event_type": "food_level",
-                        "weight_g": round(current, 2),
-                        "note": "1分定期残量同期",
-                        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
-                    }
-                    if self.env_sensor:
-                        payload.update(self.env_sensor.read_all())
-                    self.sender.send_event(payload)
+                    if self.bowl_min_steady_g <= current <= self.bowl_max_steady_g:
+                        payload = {
+                            "device_id": self.device_id,
+                            "device_type": self.device_type,
+                            "event_type": "food_level",
+                            "weight_g": round(current, 2),
+                            "note": "1分定期残量同期",
+                            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
+                        }
+                        if self.env_sensor:
+                            payload.update(self.env_sensor.read_all())
+                        self.sender.send_event(payload)
                     last_ping_time = now
 
                 time.sleep(self.config.get("sample_interval_sec", 1.0))

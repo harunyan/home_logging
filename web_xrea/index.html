@@ -541,7 +541,7 @@
         cloudChart.data.labels = labels;
         cloudChart.data.datasets = [{
           label: '餌皿残量 (g)',
-          data: filtered.map(e => e.weight_g !== null ? e.weight_g : null),
+          data: filtered.map(e => (e.weight_g !== null && e.weight_g >= 0 && e.weight_g <= 1000) ? e.weight_g : null),
           borderColor: '#fb923c',
           backgroundColor: 'rgba(251, 146, 60, 0.15)',
           fill: true,
@@ -552,7 +552,12 @@
         }];
         cloudChart.options.scales = {
           x: { grid: { color: 'rgba(148, 163, 184, 0.05)' } },
-          y: { title: { display: true, text: '重量 (g)', color: '#fb923c' }, grid: { color: 'rgba(148, 163, 184, 0.05)' }, suggestedMin: 0 }
+          y: { 
+            title: { display: true, text: '重量 (g)', color: '#fb923c' }, 
+            grid: { color: 'rgba(148, 163, 184, 0.05)' }, 
+            suggestedMin: 150,
+            suggestedMax: 300
+          }
         };
 
       } else if (currentTab === 'env') {
@@ -560,7 +565,7 @@
         cloudChart.data.datasets = [
           {
             label: '室温 (°C)',
-            data: filtered.map(e => e.temperature_c !== null ? e.temperature_c : null),
+            data: filtered.map(e => (e.temperature_c !== null && e.temperature_c >= -20 && e.temperature_c <= 60) ? e.temperature_c : null),
             borderColor: '#34d399',
             backgroundColor: 'rgba(52, 211, 153, 0.1)',
             yAxisID: 'yTemp',
@@ -569,7 +574,7 @@
           },
           {
             label: '湿度 (%)',
-            data: filtered.map(e => e.humidity_pct !== null ? e.humidity_pct : null),
+            data: filtered.map(e => (e.humidity_pct !== null && e.humidity_pct >= 0 && e.humidity_pct <= 100) ? e.humidity_pct : null),
             borderColor: '#38bdf8',
             backgroundColor: 'rgba(56, 189, 248, 0.1)',
             yAxisID: 'yHum',
@@ -587,7 +592,7 @@
         cloudChart.data.labels = labels;
         cloudChart.data.datasets = [{
           label: '気圧 (hPa)',
-          data: filtered.map(e => e.pressure_hpa !== null ? e.pressure_hpa : null),
+          data: filtered.map(e => (e.pressure_hpa !== null && e.pressure_hpa >= 800 && e.pressure_hpa <= 1200) ? e.pressure_hpa : null),
           borderColor: '#a78bfa',
           backgroundColor: 'rgba(167, 139, 250, 0.15)',
           fill: true,

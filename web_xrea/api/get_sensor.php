@@ -23,6 +23,11 @@ $deviceId = $_GET['device_id'] ?? '';
 $eventType = $_GET['event_type'] ?? '';
 $range = $_GET['range'] ?? ''; // '1h', '6h', '24h', '7d', 'all'
 
+// Auto-cleanup or manual cleanup of past anomalies if requested
+if (isset($_GET['cleanup_anomalies']) && $_GET['cleanup_anomalies'] === '1') {
+    $db->exec("DELETE FROM events WHERE weight_g < 0 OR weight_g > 25000 OR ((device_type = 'feeder' OR event_type = 'food_level') AND weight_g > 1000);");
+}
+
 $whereClauses = [];
 if (!empty($deviceId)) {
     $whereClauses[] = "device_id = '" . SQLite3::escapeString($deviceId) . "'";
@@ -30,6 +35,9 @@ if (!empty($deviceId)) {
 if (!empty($eventType)) {
     $whereClauses[] = "event_type = '" . SQLite3::escapeString($eventType) . "'";
 }
+
+// Ignore physical glitch anomalies in timeline queries (Feeder: 0-1000g, Scale: 0-25000g)
+$whereClauses[] = "(weight_g IS NULL OR (weight_g >= 0 AND weight_g <= 25000 AND NOT ((device_type = 'feeder' OR event_type = 'food_level') AND weight_g > 1000)))";
 
 if (!empty($range) && $range !== 'all') {
     $cutoff = '';
@@ -67,25 +75,25 @@ while ($row = $results->fetchArray(SQLITE3_ASSOC)) {
     $events[] = $row;
 }
 
-// Calculate summary stats for today
+// Calculate summary stats for today (with anomaly filtering)
 $todayStart = date('Y-m-d 00:00:00');
 $todaySql = "SELECT COUNT(*) as total_events,
                     SUM(CASE WHEN event_type = 'meal_finished' THEN 1 ELSE 0 END) as meal_count,
-                    SUM(CASE WHEN event_type = 'meal_finished' AND delta_g < 0 THEN -delta_g ELSE 0 END) as eaten_g,
-                    MAX(CASE WHEN device_type = 'feeder' THEN weight_g END) as max_food,
-                    MIN(CASE WHEN device_type = 'feeder' THEN weight_g END) as min_food,
-                    MAX(temperature_c) as max_temp,
-                    MIN(temperature_c) as min_temp,
-                    MAX(humidity_pct) as max_hum,
-                    MIN(humidity_pct) as min_hum
+                    SUM(CASE WHEN event_type = 'meal_finished' AND delta_g < 0 AND delta_g >= -500 THEN -delta_g ELSE 0 END) as eaten_g,
+                    MAX(CASE WHEN device_type = 'feeder' AND weight_g >= 0 AND weight_g <= 1000 THEN weight_g END) as max_food,
+                    MIN(CASE WHEN device_type = 'feeder' AND weight_g >= 0 AND weight_g <= 1000 THEN weight_g END) as min_food,
+                    MAX(CASE WHEN temperature_c BETWEEN -20 AND 60 THEN temperature_c END) as max_temp,
+                    MIN(CASE WHEN temperature_c BETWEEN -20 AND 60 THEN temperature_c END) as min_temp,
+                    MAX(CASE WHEN humidity_pct BETWEEN 0 AND 100 THEN humidity_pct END) as max_hum,
+                    MIN(CASE WHEN humidity_pct BETWEEN 0 AND 100 THEN humidity_pct END) as min_hum
              FROM events WHERE timestamp >= '{$todayStart}';";
 
 $summaryRow = $db->querySingle($todaySql, true);
 
-// Latest status
-$latestFeeder = $db->querySingle("SELECT weight_g, timestamp FROM events WHERE device_type = 'feeder' OR event_type = 'food_level' ORDER BY id DESC LIMIT 1;", true);
-$latestScale  = $db->querySingle("SELECT weight_g, timestamp FROM events WHERE device_type = 'scale' AND weight_g >= 1000 ORDER BY id DESC LIMIT 1;", true);
-$latestEnv    = $db->querySingle("SELECT temperature_c, humidity_pct, pressure_hpa, timestamp FROM events WHERE temperature_c IS NOT NULL ORDER BY id DESC LIMIT 1;", true);
+// Latest status (safeguarded against glitches)
+$latestFeeder = $db->querySingle("SELECT weight_g, timestamp FROM events WHERE (device_type = 'feeder' OR event_type = 'food_level') AND weight_g >= 0 AND weight_g <= 1000 ORDER BY id DESC LIMIT 1;", true);
+$latestScale  = $db->querySingle("SELECT weight_g, timestamp FROM events WHERE device_type = 'scale' AND weight_g >= 100 AND weight_g <= 20000 ORDER BY id DESC LIMIT 1;", true);
+$latestEnv    = $db->querySingle("SELECT temperature_c, humidity_pct, pressure_hpa, timestamp FROM events WHERE temperature_c IS NOT NULL AND temperature_c BETWEEN -20 AND 60 ORDER BY id DESC LIMIT 1;", true);
 
 $response = [
     'status' => 'success',

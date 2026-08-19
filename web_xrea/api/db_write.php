@@ -60,14 +60,44 @@ foreach ($events as $ev) {
         continue;
     }
 
+    $deviceType = $ev['device_type'] ?? 'feeder';
+    $eventType  = $ev['event_type'] ?? 'food_level';
+    $weightG    = isset($ev['weight_g']) ? (float)$ev['weight_g'] : null;
+
+    // Weight range validation
+    if ($weightG !== null) {
+        if (($deviceType === 'feeder' || $eventType === 'food_level' || $eventType === 'meal_finished' || $eventType === 'refill') && ($weightG < 0 || $weightG > 1000)) {
+            continue; // Skip invalid feeder weight (1kg load cell)
+        }
+        if (($deviceType === 'scale' || $eventType === 'weight_measured') && ($weightG < 0 || $weightG > 25000)) {
+            continue; // Skip invalid scale weight
+        }
+    }
+
+    // Environmental range sanity checks
+    $tempC = isset($ev['temperature_c']) ? (float)$ev['temperature_c'] : null;
+    if ($tempC !== null && ($tempC < -20.0 || $tempC > 60.0)) {
+        $tempC = null;
+    }
+
+    $humPct = isset($ev['humidity_pct']) ? (float)$ev['humidity_pct'] : null;
+    if ($humPct !== null && ($humPct < 0.0 || $humPct > 100.0)) {
+        $humPct = null;
+    }
+
+    $pressHpa = isset($ev['pressure_hpa']) ? (float)$ev['pressure_hpa'] : null;
+    if ($pressHpa !== null && ($pressHpa < 800.0 || $pressHpa > 1200.0)) {
+        $pressHpa = null;
+    }
+
     $stmt->bindValue(':device_id', $ev['device_id'], SQLITE3_TEXT);
-    $stmt->bindValue(':device_type', $ev['device_type'] ?? 'feeder', SQLITE3_TEXT);
-    $stmt->bindValue(':event_type', $ev['event_type'] ?? 'food_level', SQLITE3_TEXT);
-    $stmt->bindValue(':weight_g', isset($ev['weight_g']) ? (float)$ev['weight_g'] : null, SQLITE3_FLOAT);
+    $stmt->bindValue(':device_type', $deviceType, SQLITE3_TEXT);
+    $stmt->bindValue(':event_type', $eventType, SQLITE3_TEXT);
+    $stmt->bindValue(':weight_g', $weightG, SQLITE3_FLOAT);
     $stmt->bindValue(':delta_g', isset($ev['delta_g']) ? (float)$ev['delta_g'] : null, SQLITE3_FLOAT);
-    $stmt->bindValue(':temperature_c', isset($ev['temperature_c']) ? (float)$ev['temperature_c'] : null, SQLITE3_FLOAT);
-    $stmt->bindValue(':humidity_pct', isset($ev['humidity_pct']) ? (float)$ev['humidity_pct'] : null, SQLITE3_FLOAT);
-    $stmt->bindValue(':pressure_hpa', isset($ev['pressure_hpa']) ? (float)$ev['pressure_hpa'] : null, SQLITE3_FLOAT);
+    $stmt->bindValue(':temperature_c', $tempC, SQLITE3_FLOAT);
+    $stmt->bindValue(':humidity_pct', $humPct, SQLITE3_FLOAT);
+    $stmt->bindValue(':pressure_hpa', $pressHpa, SQLITE3_FLOAT);
     $stmt->bindValue(':raw_value', isset($ev['raw_value']) ? (int)$ev['raw_value'] : null, SQLITE3_INTEGER);
     $stmt->bindValue(':note', $ev['note'] ?? '', SQLITE3_TEXT);
     $stmt->bindValue(':timestamp', $ev['timestamp'] ?? $nowStr, SQLITE3_TEXT);

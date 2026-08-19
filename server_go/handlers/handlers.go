@@ -130,22 +130,28 @@ func (h *Handler) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	savedCount := 0
+	var validEvents []models.LogEvent
 	for _, ev := range eventsToSave {
 		if ev.DeviceID == "" {
 			continue // Skip invalid events without device_id
+		}
+		if !validateEvent(&ev) {
+			log.Printf("[Validation] ⚠️ Anomaly detected from %s (%s, %.2fg) - Skipped", ev.DeviceID, ev.EventType, ev.WeightG)
+			continue
 		}
 		if err := h.storage.SaveEvent(ev); err != nil {
 			log.Printf("[Error] Failed to save event from %s: %v", ev.DeviceID, err)
 			continue
 		}
 		savedCount++
+		validEvents = append(validEvents, ev)
 		log.Printf("[Event] Device: %s | Type: %s | Weight: %.2fg | Event: %s",
 			ev.DeviceID, ev.DeviceType, ev.WeightG, ev.EventType)
 	}
 
 	// Trigger asynchronous encrypted cloud relay to XREA if configured
-	if savedCount > 0 && h.relayer != nil {
-		h.relayer.EnqueueEvent(eventsToSave)
+	if len(validEvents) > 0 && h.relayer != nil {
+		h.relayer.EnqueueEvent(validEvents)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -154,6 +160,33 @@ func (h *Handler) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 		"status": "success",
 		"saved":  savedCount,
 	})
+}
+
+// validateEvent sanitizes sensor fields and rejects extreme physical outliers.
+func validateEvent(ev *models.LogEvent) bool {
+	// 1. Weight validation
+	if ev.DeviceType == "feeder" || ev.EventType == "meal_finished" || ev.EventType == "refill" || ev.EventType == "food_level" {
+		if ev.WeightG < 0.0 || ev.WeightG > 1000.0 {
+			return false // Reject negative or >1kg (1kg load cell capacity) food readings
+		}
+	} else if ev.DeviceType == "scale" || ev.EventType == "weight_measured" {
+		if ev.WeightG < 0.0 || ev.WeightG > 25000.0 {
+			return false // Reject negative or >25kg cat scale readings
+		}
+	}
+
+	// 2. Environmental sanity checks (clear invalid fields instead of dropping whole event)
+	if ev.TemperatureC != nil && (*ev.TemperatureC < -20.0 || *ev.TemperatureC > 60.0) {
+		ev.TemperatureC = nil
+	}
+	if ev.HumidityPct != nil && (*ev.HumidityPct < 0.0 || *ev.HumidityPct > 100.0) {
+		ev.HumidityPct = nil
+	}
+	if ev.PressureHpa != nil && (*ev.PressureHpa < 800.0 || *ev.PressureHpa > 1200.0) {
+		ev.PressureHpa = nil
+	}
+
+	return true
 }
 
 func (h *Handler) handleGetEvents(w http.ResponseWriter, r *http.Request) {
