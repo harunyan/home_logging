@@ -314,12 +314,42 @@ class FeederMonitor:
                         if self.env_sensor:
                             payload.update(self.env_sensor.read_all())
                         self.sender.send_event(payload)
+                        last_env_time = now  # Reset env timer as well since env was piggybacked
                     last_ping_time = now
+
+                # 独立した定期環境温湿度・気圧ロギング (ロードセル状態に関わらず1分おきに確実に送信)
+                if self.env_sensor and (now - last_env_time >= env_interval):
+                    env_data = self.env_sensor.read_all()
+                    if env_data:
+                        status_note = "猫接触・食事中" if is_cat_eating else "定期環境計測"
+                        self.sender.send_event({
+                            "device_id": self.device_id,
+                            "device_type": self.device_type,
+                            "event_type": "env_measured",
+                            "note": status_note,
+                            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                            **env_data
+                        })
+                    last_env_time = now
 
                 time.sleep(self.config.get("sample_interval_sec", 1.0))
 
             except Exception as e:
                 print(f"[FeederMonitor] Error: {e}")
+                # Even if HX711 throws error, ensure environmental logging still operates
+                now = time.time()
+                if self.env_sensor and (now - last_env_time >= env_interval):
+                    env_data = self.env_sensor.read_all()
+                    if env_data:
+                        self.sender.send_event({
+                            "device_id": self.device_id,
+                            "device_type": self.device_type,
+                            "event_type": "env_measured",
+                            "note": f"定期環境計測 (ロードセル待機中: {e})",
+                            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                            **env_data
+                        })
+                    last_env_time = now
                 time.sleep(1.0)
 
 
