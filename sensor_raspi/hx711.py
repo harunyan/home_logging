@@ -47,18 +47,20 @@ class HX711:
             return True
         return GPIO.input(self.dout_pin) == 0
 
-    def read_raw(self) -> int:
-        """Reads a single 24-bit raw value from HX711."""
+    def read_raw(self, timeout_sec: float = 2.0) -> Optional[int]:
+        """Reads a single 24-bit raw value from HX711 with timeout handling."""
         if self.mock:
             time.sleep(0.01)
             # Simulated noise around mock base
             return int(self._mock_base_adc + random.gauss(0, 150))
 
+        GPIO.output(self.pd_sck_pin, False)
+
         # Wait until sensor is ready (DOUT goes LOW)
-        timeout = time.time() + 1.0
-        while not self.is_ready():
-            if time.time() > timeout:
-                raise TimeoutError("HX711 sensor not responding (DOUT stayed HIGH)")
+        start_wait = time.time()
+        while GPIO.input(self.dout_pin) == 1:
+            if time.time() - start_wait > timeout_sec:
+                return None  # Return None on timeout instead of crashing
             time.sleep(0.001)
 
         raw_data = 0
@@ -78,15 +80,19 @@ class HX711:
 
         return raw_data
 
-    def read_average(self, times: int = 5) -> float:
-        """Reads multiple raw values, filters outliers, and returns median/mean."""
-        if times <= 1:
-            return float(self.read_raw())
-
+    def read_average(self, times: int = 5, timeout_sec: float = 15.0) -> float:
+        """Reads multiple raw values, retries on timeout, filters outliers with median."""
+        start_time = time.time()
         readings = []
-        for _ in range(times):
-            readings.append(self.read_raw())
+        
+        while len(readings) < times and (time.time() - start_time < timeout_sec):
+            val = self.read_raw(timeout_sec=2.0)
+            if val is not None:
+                readings.append(val)
             time.sleep(0.01)
+
+        if not readings:
+            raise TimeoutError("HX711 センサーからの応答がありませんでした (配線または他のプロセスとの競合を確認してください)")
 
         # Use median to eliminate spike noise
         return float(statistics.median(readings))

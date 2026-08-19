@@ -50,7 +50,7 @@ def main():
     mock = cfg.get("mock_mode", False)
 
     print(f"GPIO設定: DOUT=BCM{dout}, SCK=BCM{sck} (Mock={mock})")
-    hx = HX711(dout_pin=dout, pd_sck_pin=sck, gain=cfg.get("gain", 128), mock=mock)
+    hx = HX711(dout_pin=dout, pd_sck_pin=sck, gain=cfg.get("gain", 64), mock=mock)
 
     try:
         # Step 1: Tare (ゼロ点合わせ)
@@ -59,7 +59,7 @@ def main():
         input("準備ができたら [Enter] キーを押してください...")
 
         print("ゼロ点を測定中...", end="", flush=True)
-        offset = hx.tare(times=20)
+        offset = hx.tare(times=10)
         print(f" 完了! (Offset raw: {offset:.1f})")
 
         # Step 2: Reference Weight (既知の重り測定)
@@ -76,7 +76,7 @@ def main():
             return
 
         print("重りを測定中...", end="", flush=True)
-        raw_val = hx.read_average(times=20)
+        raw_val = hx.read_average(times=10)
         delta_raw = raw_val - offset
         
         if delta_raw == 0:
