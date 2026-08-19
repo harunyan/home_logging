@@ -20,6 +20,22 @@ type LogEvent struct {
 	ReceivedAt   time.Time `json:"received_at"`             // Time received by WinSV server
 }
 
+// EncryptedPayload represents an incoming encrypted event packet from client.
+type EncryptedPayload struct {
+	Encrypted    bool   `json:"encrypted"`
+	Algorithm    string `json:"algorithm"`
+	ClientPubKey string `json:"client_pubkey"`
+	Nonce        string `json:"nonce"`
+	Ciphertext   string `json:"ciphertext"`
+}
+
+// PublicKeyResponse represents the server's public key response.
+type PublicKeyResponse struct {
+	Status    string `json:"status"`
+	Algorithm string `json:"algorithm"`
+	PublicKey string `json:"public_key"`
+}
+
 // DeviceStatus tracks the latest known status of a device.
 type DeviceStatus struct {
 	DeviceID      string    `json:"device_id"`

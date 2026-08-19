@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"home_logging_server/handlers"
+	"home_logging_server/security"
 	"home_logging_server/storage"
 )
 
@@ -36,11 +37,18 @@ func main() {
 		log.Fatalf("Fatal: Failed to initialize storage: %v", err)
 	}
 
-	h := handlers.NewHandler(store)
+	// Initialize crypto manager (Password-free ephemeral X25519 + AES-256-GCM)
+	cryptoMgr, err := security.NewCryptoManager()
+	if err != nil {
+		log.Fatalf("Fatal: Failed to initialize crypto manager: %v", err)
+	}
+
+	h := handlers.NewHandler(store, cryptoMgr)
 	mux := http.NewServeMux()
 
 	// API Endpoints
 	mux.HandleFunc("/health", h.HandleHealth)
+	mux.HandleFunc("/api/v1/pubkey", h.HandlePublicKey)
 	mux.HandleFunc("/api/v1/events", h.HandleEvents)
 	mux.HandleFunc("/api/v1/devices", h.HandleDevices)
 	mux.HandleFunc("/api/v1/summary", h.HandleSummary)

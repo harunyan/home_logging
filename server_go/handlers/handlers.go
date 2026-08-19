@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -9,15 +10,17 @@ import (
 	"strings"
 
 	"home_logging_server/models"
+	"home_logging_server/security"
 	"home_logging_server/storage"
 )
 
 type Handler struct {
 	storage *storage.Storage
+	crypto  *security.CryptoManager
 }
 
-func NewHandler(s *storage.Storage) *Handler {
-	return &Handler{storage: s}
+func NewHandler(s *storage.Storage, c *security.CryptoManager) *Handler {
+	return &Handler{storage: s, crypto: c}
 }
 
 // enableCORS sets CORS headers for local/cross-origin requests.
@@ -35,6 +38,27 @@ func (h *Handler) HandleHealth(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte(`{"status":"ok","service":"cat-home-logging-winsv"}`))
+}
+
+// HandlePublicKey returns the server's ephemeral public key for client encryption.
+func (h *Handler) HandlePublicKey(w http.ResponseWriter, r *http.Request) {
+	enableCORS(w)
+	if r.Method == http.MethodOptions {
+		return
+	}
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	resp := models.PublicKeyResponse{
+		Status:    "ok",
+		Algorithm: security.AlgorithmName,
+		PublicKey: h.crypto.GetPublicKeyBase64(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(resp)
 }
 
 // HandleEvents processes POST (receive signal) and GET (query logs).
@@ -68,16 +92,35 @@ func (h *Handler) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Support both single event object and array of events
+	rawJSONBytes := body
+
+	// 1. Check if incoming payload is encrypted (EncryptedPayload structure)
+	if !strings.HasPrefix(trimmed, "[") && strings.Contains(trimmed, `"encrypted":true`) || strings.Contains(trimmed, `"encrypted": true`) {
+		var encPayload models.EncryptedPayload
+		if err := json.Unmarshal(body, &encPayload); err == nil && encPayload.Encrypted {
+			decrypted, err := h.crypto.DecryptPayload(encPayload.ClientPubKey, encPayload.Nonce, encPayload.Ciphertext)
+			if err != nil {
+				log.Printf("[Security] ❌ Decryption failed from %s: %v", r.RemoteAddr, err)
+				http.Error(w, fmt.Sprintf(`{"error":"decryption failed: %v"}`, err), http.StatusBadRequest)
+				return
+			}
+			log.Printf("[Security] 🔒 Received encrypted payload (%d bytes) from %s -> Decrypted (%d bytes)",
+				len(body), r.RemoteAddr, len(decrypted))
+			rawJSONBytes = decrypted
+			trimmed = strings.TrimSpace(string(rawJSONBytes))
+		}
+	}
+
+	// 2. Parse decrypted/plaintext events (both single object and array supported)
 	var eventsToSave []models.LogEvent
 	if strings.HasPrefix(trimmed, "[") {
-		if err := json.Unmarshal(body, &eventsToSave); err != nil {
+		if err := json.Unmarshal(rawJSONBytes, &eventsToSave); err != nil {
 			http.Error(w, `{"error":"invalid JSON array format"}`, http.StatusBadRequest)
 			return
 		}
 	} else {
 		var singleEvent models.LogEvent
-		if err := json.Unmarshal(body, &singleEvent); err != nil {
+		if err := json.Unmarshal(rawJSONBytes, &singleEvent); err != nil {
 			http.Error(w, `{"error":"invalid JSON object format"}`, http.StatusBadRequest)
 			return
 		}

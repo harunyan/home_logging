@@ -22,6 +22,7 @@ if sys.stdout and hasattr(sys.stdout, "reconfigure"):
 
 from hx711 import HX711
 from env_sensor import EnvIVSensor
+from crypto_client import CryptoClient
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
 
@@ -135,7 +136,7 @@ def main():
         print(f"  ├─ 疎通確認 (/health): ❌ 接続できませんでした ➜ {e}")
         print(f"  │  (Windows側で home_logging_server.exe が起動しているか、IP/ポート/ファイアウォールを確認してください)")
 
-    # 3-2. テストイベント送信
+    # 3-2. 公開鍵取得 & テストイベント暗号化送信
     dev_type = config.get("device_type", "feeder")
     event_type = "weight_measured" if dev_type == "scale" else "food_level"
     note_text = "1-Shot テスト測定 (体重計)" if dev_type == "scale" else "1-Shot テスト測定 (給餌器/餌皿)"
@@ -151,9 +152,21 @@ def main():
         **env_data
     }]
 
+    crypto = CryptoClient(server_url)
+    if crypto.is_available:
+        if crypto.fetch_server_public_key():
+            print(f"  ├─ 公開鍵取得 (/api/v1/pubkey): ✅ 成功 (X25519 自動鍵交換)")
+        else:
+            print(f"  ├─ 公開鍵取得 (/api/v1/pubkey): ⚠️ 失敗 (平文モードで送信)")
+    else:
+        print(f"  ├─ 通信暗号化: ⚠️ 無効 (sudo apt install -y python3-cryptography で有効化可能)")
+
+    post_data = crypto.encrypt_data(payload)
+    is_enc = isinstance(post_data, dict) and post_data.get("encrypted")
+
     try:
         event_url = f"{server_url}/api/v1/events"
-        data_bytes = json.dumps(payload).encode("utf-8")
+        data_bytes = json.dumps(post_data).encode("utf-8")
         req = urllib.request.Request(
             event_url,
             data=data_bytes,
@@ -162,7 +175,8 @@ def main():
         )
         with urllib.request.urlopen(req, timeout=4.0) as resp:
             resp_body = resp.read().decode("utf-8")
-            print(f"  └─ イベント送信 (/api/v1/events): ✅ 成功 (HTTP {resp.status}) ➜ {resp_body}")
+            enc_status = "🔒 暗号化 (X25519+AES-256-GCM)" if is_enc else "📡 平文"
+            print(f"  └─ イベント送信 (/api/v1/events): ✅ 成功 ({enc_status}, HTTP {resp.status}) ➜ {resp_body}")
     except Exception as e:
         print(f"  └─ イベント送信 (/api/v1/events): ❌ 送信失敗 ➜ {e}")
 

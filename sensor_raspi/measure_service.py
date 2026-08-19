@@ -15,18 +15,20 @@ import urllib.request
 from typing import Any, Dict, List, Optional
 from hx711 import HX711
 from env_sensor import EnvIVSensor
+from crypto_client import CryptoClient
 
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
 
 
 class WinSVSender:
-    """Handles HTTP POST requests to WinSV Go receiver with local offline buffer."""
+    """Handles HTTP POST requests to WinSV Go receiver with local offline buffer and automatic encryption."""
 
     def __init__(self, server_url: str, queue_file: str = "offline_queue.json"):
         self.server_url = server_url.rstrip("/")
         self.endpoint = f"{self.server_url}/api/v1/events"
         self.queue_file = os.path.join(os.path.dirname(__file__), queue_file)
         self.queue: List[Dict[str, Any]] = self._load_queue()
+        self.crypto = CryptoClient(self.server_url)
 
     def _load_queue(self) -> List[Dict[str, Any]]:
         if os.path.exists(self.queue_file):
@@ -51,22 +53,26 @@ class WinSVSender:
         return self.flush_queue()
 
     def flush_queue(self) -> bool:
-        """Attempts to flush queued events to WinSV."""
+        """Attempts to flush queued events to WinSV with automatic encryption."""
         if not self.queue:
             return True
 
         try:
-            payload = json.dumps(self.queue).encode("utf-8")
+            # Encrypt payload with ephemeral X25519 + AES-256-GCM (no passwords needed)
+            post_data = self.crypto.encrypt_data(self.queue)
+            payload = json.dumps(post_data).encode("utf-8")
+
             req = urllib.request.Request(
                 self.endpoint,
                 data=payload,
-                headers={"Content-Type": "application/json"},
+                headers={"Content-Type": "application/json", "User-Agent": "Raspi-Cat-Logger"},
                 method="POST"
             )
             with urllib.request.urlopen(req, timeout=4.0) as resp:
                 if resp.status in (200, 201):
                     count = len(self.queue)
-                    print(f"📡 [WinSV] Sent {count} event(s) successfully.")
+                    enc_tag = "🔒 [Encrypted AES-256-GCM]" if (isinstance(post_data, dict) and post_data.get("encrypted")) else "📡 [Plaintext]"
+                    print(f"{enc_tag} [WinSV] Sent {count} event(s) successfully.")
                     self.queue.clear()
                     self._save_queue()
                     return True
