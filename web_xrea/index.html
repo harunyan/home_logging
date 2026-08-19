@@ -311,7 +311,7 @@
           <h1>Cat Home Logging Cloud</h1>
           <div style="display: flex; gap: 8px; align-items: center; margin-top: 2px;">
             <span class="server-tag">veris.jp Cloud Host</span>
-            <span id="refresh-status" style="font-size: 0.72rem; color: var(--text-muted);">● 自動更新中 (10s)</span>
+            <span id="refresh-status" style="font-size: 0.72rem; color: var(--text-muted);">● 自動更新中 (1分)</span>
           </div>
         </div>
       </div>
@@ -618,7 +618,7 @@
 
     initChart();
     fetchCloudData();
-    setInterval(fetchCloudData, 10000);
+    setInterval(fetchCloudData, 60000); // 1分おきに自動更新
   </script>
 </body>
 </html>

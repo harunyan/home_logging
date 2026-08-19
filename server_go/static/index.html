@@ -400,7 +400,7 @@
           <h1>Cat Home Logging Monitor</h1>
           <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
             <span class="server-tag">WinSV Go Receiver</span>
-            <span id="refresh-status" style="font-size: 0.75rem; color: var(--text-muted);">● 自動更新中 (5s)</span>
+            <span id="refresh-status" style="font-size: 0.75rem; color: var(--text-muted);">● 自動更新中 (1分)</span>
           </div>
         </div>
       </div>
@@ -566,7 +566,7 @@
         rawEventsData = evRes.events || [];
         updateEventsTable(rawEventsData.slice(0, 50));
         renderChart();
-        document.getElementById('refresh-status').textContent = '● 自動更新中 (5s)';
+        document.getElementById('refresh-status').textContent = '● 自動更新中 (1分)';
       } catch (err) {
         console.error('Fetch error:', err);
         document.getElementById('refresh-status').textContent = '⚠️ 接続エラー';
@@ -819,7 +819,7 @@
     // Initialize Chart and Start Live Polling
     initChart();
     fetchData();
-    setInterval(fetchData, 5000);
+    setInterval(fetchData, 60000); // 1分おきに自動更新
   </script>
 </body>
 </html>
