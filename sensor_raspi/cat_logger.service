@@ -5,9 +5,9 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-User=pi
-WorkingDirectory=/home/pi/home_logging/sensor_raspi
-ExecStart=/usr/bin/python3 /home/pi/home_logging/sensor_raspi/measure_service.py
+User=morimoto
+WorkingDirectory=/home/morimoto/Documents/home_logging/sensor_raspi
+ExecStart=/usr/bin/python3 /home/morimoto/Documents/home_logging/sensor_raspi/measure_service.py
 Restart=always
 RestartSec=5s
 StandardOutput=journal

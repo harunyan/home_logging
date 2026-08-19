@@ -292,9 +292,9 @@ def main():
     )
 
     hx = HX711(
-        dout_pin=cfg.get("pin_dout", 5),
-        pd_sck_pin=cfg.get("pin_pd_sck", 6),
-        gain=cfg.get("gain", 128),
+        dout_pin=cfg.get("pin_dout", 6),
+        pd_sck_pin=cfg.get("pin_pd_sck", 5),
+        gain=cfg.get("gain", 64),
         mock=cfg.get("mock_mode", False)
     )
 
