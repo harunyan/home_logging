@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"sync"
@@ -126,8 +127,10 @@ func (r *Relayer) sendBatch(events []models.LogEvent) error {
 	}
 	defer resp.Body.Close()
 
+	respBody, _ := io.ReadAll(resp.Body)
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("server responded with status %d", resp.StatusCode)
+		return fmt.Errorf("server responded with status %d: %s", resp.StatusCode, string(respBody))
 	}
 
 	log.Printf("[Relay] ☁️ Successfully relayed %d event(s) to XREA (HTTP %d, Encrypted AES-256-GCM)", len(events), resp.StatusCode)

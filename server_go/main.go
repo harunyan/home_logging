@@ -26,7 +26,7 @@ var staticFS embed.FS
 func main() {
 	port := flag.String("port", "8080", "HTTP server port")
 	dataFile := flag.String("data", "data/events.jsonl", "Path to jsonl storage file")
-	relayURL := flag.String("relay-url", "", "Optional cloud relay endpoint (e.g. https://veris.jp/home_logging/api/db_write.php)")
+	relayURL := flag.String("relay-url", "https://veris.jp/home_logging/api/db_write.php", "Cloud relay endpoint (set to empty to disable)")
 	flag.Parse()
 
 	log.Println("==================================================")
