@@ -136,3 +136,31 @@ func deriveHKDF(secret, salt, info []byte, keyLen int) ([]byte, error) {
 
 	return out[:keyLen], nil
 }
+
+// EncryptPayloadAES256GCM encrypts plaintext using standard relay key with AES-256-GCM for XREA cloud relay.
+func EncryptPayloadAES256GCM(plaintext []byte) (nonceB64, ciphertextB64 string, err error) {
+	// Derive shared relay key
+	aesKey, err := deriveHKDF([]byte("cat-logging-relay-default-seed"), []byte(hkdfSalt), []byte(hkdfInfo), 32)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to derive relay key: %w", err)
+	}
+
+	block, err := aes.NewCipher(aesKey)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create AES cipher: %w", err)
+	}
+
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", "", fmt.Errorf("failed to create GCM: %w", err)
+	}
+
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := rand.Read(nonce); err != nil {
+		return "", "", fmt.Errorf("failed to generate nonce: %w", err)
+	}
+
+	ciphertext := gcm.Seal(nil, nonce, plaintext, nil)
+
+	return base64.StdEncoding.EncodeToString(nonce), base64.StdEncoding.EncodeToString(ciphertext), nil
+}

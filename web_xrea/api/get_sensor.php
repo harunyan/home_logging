@@ -1,0 +1,117 @@
+<?php
+/**
+ * Cat Home Logging - XREA Data Query API (api/get_sensor.php)
+ * Provides sensor events and summary stats for Web Dashboard graphs.
+ */
+
+header('Content-Type: application/json; charset=UTF-8');
+header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type');
+
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+require_once __DIR__ . '/config.php';
+
+$db = get_db_connection();
+
+$limit = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 300;
+$deviceId = $_GET['device_id'] ?? '';
+$eventType = $_GET['event_type'] ?? '';
+$range = $_GET['range'] ?? ''; // '1h', '6h', '24h', '7d', 'all'
+
+$whereClauses = [];
+if (!empty($deviceId)) {
+    $whereClauses[] = "device_id = '" . SQLite3::escapeString($deviceId) . "'";
+}
+if (!empty($eventType)) {
+    $whereClauses[] = "event_type = '" . SQLite3::escapeString($eventType) . "'";
+}
+
+if (!empty($range) && $range !== 'all') {
+    $cutoff = '';
+    switch ($range) {
+        case '1h':  $cutoff = date('Y-m-d H:i:s', strtotime('-1 hour')); break;
+        case '6h':  $cutoff = date('Y-m-d H:i:s', strtotime('-6 hours')); break;
+        case '24h': $cutoff = date('Y-m-d H:i:s', strtotime('-24 hours')); break;
+        case '7d':  $cutoff = date('Y-m-d H:i:s', strtotime('-7 days')); break;
+    }
+    if (!empty($cutoff)) {
+        $whereClauses[] = "timestamp >= '" . SQLite3::escapeString($cutoff) . "'";
+    }
+}
+
+$whereSql = empty($whereClauses) ? '' : 'WHERE ' . implode(' AND ', $whereClauses);
+
+// Fetch latest events
+$sql = "SELECT id, device_id, device_type, event_type, weight_g, delta_g,
+               temperature_c, humidity_pct, pressure_hpa, raw_value, note, timestamp, received_at
+        FROM events
+        {$whereSql}
+        ORDER BY id DESC
+        LIMIT {$limit};";
+
+$results = $db->query($sql);
+$events = [];
+
+while ($row = $results->fetchArray(SQLITE3_ASSOC)) {
+    // Add backward-compatible fields for sample compatibility
+    $row['weight_hx711'] = $row['weight_g'];
+    $row['temperature']  = $row['temperature_c'];
+    $row['humidity']     = $row['humidity_pct'];
+    $row['pressure']     = $row['pressure_hpa'];
+    $row['raw_hx711']    = $row['raw_value'];
+    $events[] = $row;
+}
+
+// Calculate summary stats for today
+$todayStart = date('Y-m-d 00:00:00');
+$todaySql = "SELECT COUNT(*) as total_events,
+                    SUM(CASE WHEN event_type = 'meal_finished' THEN 1 ELSE 0 END) as meal_count,
+                    SUM(CASE WHEN event_type = 'meal_finished' AND delta_g < 0 THEN -delta_g ELSE 0 END) as eaten_g,
+                    MAX(CASE WHEN device_type = 'feeder' THEN weight_g END) as max_food,
+                    MIN(CASE WHEN device_type = 'feeder' THEN weight_g END) as min_food,
+                    MAX(temperature_c) as max_temp,
+                    MIN(temperature_c) as min_temp,
+                    MAX(humidity_pct) as max_hum,
+                    MIN(humidity_pct) as min_hum
+             FROM events WHERE timestamp >= '{$todayStart}';";
+
+$summaryRow = $db->querySingle($todaySql, true);
+
+// Latest status
+$latestFeeder = $db->querySingle("SELECT weight_g, timestamp FROM events WHERE device_type = 'feeder' OR event_type = 'food_level' ORDER BY id DESC LIMIT 1;", true);
+$latestScale  = $db->querySingle("SELECT weight_g, timestamp FROM events WHERE device_type = 'scale' AND weight_g >= 1000 ORDER BY id DESC LIMIT 1;", true);
+$latestEnv    = $db->querySingle("SELECT temperature_c, humidity_pct, pressure_hpa, timestamp FROM events WHERE temperature_c IS NOT NULL ORDER BY id DESC LIMIT 1;", true);
+
+$response = [
+    'status' => 'success',
+    'total_returned' => count($events),
+    'summary' => [
+        'latest_food_weight_g' => $latestFeeder['weight_g'] ?? null,
+        'latest_food_time'     => $latestFeeder['timestamp'] ?? null,
+        'latest_cat_weight_g'  => $latestScale['weight_g'] ?? null,
+        'latest_weight_time'   => $latestScale['timestamp'] ?? null,
+        'latest_temp_c'        => $latestEnv['temperature_c'] ?? null,
+        'latest_humidity_pct'  => $latestEnv['humidity_pct'] ?? null,
+        'latest_pressure_hpa'  => $latestEnv['pressure_hpa'] ?? null,
+        'latest_env_time'      => $latestEnv['timestamp'] ?? null,
+        'today_meals_count'    => (int)($summaryRow['meal_count'] ?? 0),
+        'today_food_eaten_g'   => round((float)($summaryRow['eaten_g'] ?? 0), 1),
+        'total_events_today'   => (int)($summaryRow['total_events'] ?? 0),
+        'today_temp_range'     => [
+            'min' => $summaryRow['min_temp'] ?? null,
+            'max' => $summaryRow['max_temp'] ?? null
+        ],
+        'today_hum_range'      => [
+            'min' => $summaryRow['min_hum'] ?? null,
+            'max' => $summaryRow['max_hum'] ?? null
+        ]
+    ],
+    'events' => $events
+];
+
+echo json_encode($response, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);

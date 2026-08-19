@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🐾 Cat Home Logging Cloud | veris.jp</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-card: rgba(22, 27, 34, 0.88);
+      --border-color: rgba(240, 246, 252, 0.1);
+      --accent-orange: #f0883e;
+      --accent-cyan: #38bdf8;
+      --accent-green: #3fb950;
+      --accent-purple: #a371f7;
+      --accent-pink: #f43f5e;
+      --text-main: #f0f6fc;
+      --text-muted: #8b949e;
+      --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Outfit', 'Noto Sans JP', sans-serif;
+      background: radial-gradient(circle at 10% 20%, #1a1e29 0%, #0d1117 90%);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 20px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1300px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border-color);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      font-size: 2.2rem;
+      background: linear-gradient(135deg, #f0883e, #ec4899);
+      -webkit-background-clip: text;
+      background-clip: text;
+      -webkit-text-fill-color: transparent;
+      color: transparent;
+    }
+
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .server-tag {
+      font-size: 0.75rem;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-cyan);
+      padding: 3px 10px;
+      border-radius: 9999px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      background: var(--bg-secondary);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 6px 14px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: rgba(240, 246, 252, 0.1);
+      border-color: rgba(240, 246, 252, 0.3);
+    }
+
+    /* Summary Grid */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 16px;
+      box-shadow: var(--card-shadow);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+    }
+
+    .card-title {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-value {
+      font-size: 1.7rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 4px;
+    }
+
+    .card-subtext {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+    }
+
+    .val-orange { color: var(--accent-orange); }
+    .val-cyan { color: var(--accent-cyan); }
+    .val-green { color: var(--accent-green); }
+    .val-purple { color: var(--accent-purple); }
+
+    /* Graph Section */
+    .graph-section {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 18px;
+      box-shadow: var(--card-shadow);
+      margin-bottom: 20px;
+    }
+
+    .graph-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 6px;
+      background: rgba(13, 17, 23, 0.8);
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+
+    .tab-btn.active {
+      background: var(--bg-secondary);
+      color: var(--accent-cyan);
+    }
+
+    .range-selector {
+      display: flex;
+      gap: 4px;
+      background: rgba(13, 17, 23, 0.8);
+      padding: 4px;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .range-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 4px 8px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.72rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .range-btn.active {
+      background: var(--accent-cyan);
+      color: #0d1117;
+      font-weight: 700;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 300px;
+      width: 100%;
+    }
+
+    /* History Table */
+    .table-container {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+      max-height: 380px;
+      overflow-y: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.8rem;
+    }
+
+    th {
+      background: rgba(255, 255, 255, 0.04);
+      padding: 10px 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      backdrop-filter: blur(8px);
+      z-index: 1;
+    }
+
+    td {
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(240, 246, 252, 0.05);
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .badge-feeder { background: rgba(240, 136, 62, 0.15); color: var(--accent-orange); }
+    .badge-scale { background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan); }
+    .badge-sensor { background: rgba(163, 113, 247, 0.15); color: var(--accent-purple); }
+
+    .empty-state {
+      text-align: center;
+      padding: 30px;
+      color: var(--text-muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <span class="brand-icon">🐾</span>
+        <div>
+          <h1>Cat Home Logging Cloud</h1>
+          <div style="display: flex; gap: 8px; align-items: center; margin-top: 2px;">
+            <span class="server-tag">veris.jp Cloud Host</span>
+            <span id="refresh-status" style="font-size: 0.72rem; color: var(--text-muted);">● 自動更新中 (10s)</span>
+          </div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn" onclick="fetchCloudData()">🔄 更新</button>
+      </div>
+    </header>
+
+    <!-- Summary Grid -->
+    <div class="summary-grid">
+      <div class="card">
+        <div class="card-title"><span>餌皿の現在残量</span> <span>🍽️</span></div>
+        <div class="card-value val-orange" id="sum-food-weight">-- <span style="font-size: 0.9rem; font-weight: normal;">g</span></div>
+        <div class="card-subtext" id="sum-food-time">未測定</div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>猫の最新体重</span> <span>⚖️</span></div>
+        <div class="card-value val-cyan" id="sum-cat-weight">-- <span style="font-size: 0.9rem; font-weight: normal;">g</span></div>
+        <div class="card-subtext" id="sum-cat-time">未測定</div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>室内温湿度 (ENV IV)</span> <span>🌡️</span></div>
+        <div class="card-value val-green" id="sum-env-temp">--.- <span style="font-size: 0.9rem; font-weight: normal;">°C</span></div>
+        <div class="card-subtext" id="sum-env-sub">湿度: --% / 気圧: -- hPa</div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>本日の食事回数</span> <span>🥣</span></div>
+        <div class="card-value val-orange" id="sum-meals-count">0 <span style="font-size: 0.9rem; font-weight: normal;">回</span></div>
+        <div class="card-subtext" id="sum-food-eaten">食べた量: 0.0g</div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>本日の総受信数</span> <span>📡</span></div>
+        <div class="card-value val-purple" id="sum-events-count">0</div>
+        <div class="card-subtext">ログ件数</div>
+      </div>
+    </div>
+
+    <!-- Time-Series Graph -->
+    <div class="graph-section">
+      <div class="graph-header">
+        <div class="tabs">
+          <button class="tab-btn active" id="tab-weight" onclick="switchTab('weight')">🍽️ 餌皿残量</button>
+          <button class="tab-btn" id="tab-env" onclick="switchTab('env')">🌡️ 室温・湿度</button>
+          <button class="tab-btn" id="tab-pressure" onclick="switchTab('pressure')">⏱️ 気圧</button>
+        </div>
+        <div class="range-selector">
+          <button class="range-btn" id="range-1h" onclick="setRange('1h')">1時間</button>
+          <button class="range-btn" id="range-6h" onclick="setRange('6h')">6時間</button>
+          <button class="range-btn active" id="range-24h" onclick="setRange('24h')">24時間</button>
+          <button class="range-btn" id="range-7d" onclick="setRange('7d')">7日間</button>
+          <button class="range-btn" id="range-all" onclick="setRange('all')">全件</button>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas id="cloudChart"></canvas>
+      </div>
+    </div>
+
+    <!-- History Table -->
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>発生時刻</th>
+            <th>デバイス</th>
+            <th>種別</th>
+            <th>イベント</th>
+            <th style="text-align: right;">重量 / 差分</th>
+            <th>環境</th>
+            <th>メモ</th>
+          </tr>
+        </thead>
+        <tbody id="events-tbody">
+          <tr><td colspan="7" class="empty-state">データを読み込み中...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    let cloudChart = null;
+    let currentTab = 'weight';
+    let currentRange = '24h';
+    let cloudEvents = [];
+
+    Chart.defaults.color = '#8b949e';
+    Chart.defaults.borderColor = 'rgba(240, 246, 252, 0.08)';
+    Chart.defaults.font.family = "'Outfit', 'Noto Sans JP', sans-serif";
+
+    function initChart() {
+      const ctx = document.getElementById('cloudChart').getContext('2d');
+      cloudChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true } },
+            tooltip: {
+              backgroundColor: 'rgba(22, 27, 34, 0.95)',
+              titleColor: '#f0f6fc',
+              bodyColor: '#f0f6fc',
+              borderColor: 'rgba(240, 246, 252, 0.15)',
+              borderWidth: 1,
+              padding: 8
+            }
+          },
+          scales: {
+            x: { grid: { color: 'rgba(240, 246, 252, 0.05)' }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
+            y: { grid: { color: 'rgba(240, 246, 252, 0.05)' } }
+          }
+        }
+      });
+    }
+
+    async function fetchCloudData() {
+      try {
+        const url = `api/get_sensor.php?limit=500&range=${currentRange}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.status === 'success') {
+          updateSummary(data.summary);
+          cloudEvents = data.events || [];
+          updateTable(cloudEvents.slice(0, 50));
+          renderChart();
+          document.getElementById('refresh-status').textContent = '● 自動更新中 (10s)';
+        }
+      } catch (err) {
+        console.error('Fetch error:', err);
+        document.getElementById('refresh-status').textContent = '⚠️ 接続エラー';
+      }
+    }
+
+    function updateSummary(s) {
+      if (!s) return;
+
+      if (s.latest_food_weight_g !== null && s.latest_food_weight_g !== undefined) {
+        document.getElementById('sum-food-weight').innerHTML = `${Number(s.latest_food_weight_g).toFixed(1)} <span style="font-size: 0.9rem; font-weight: normal;">g</span>`;
+        if (s.latest_food_time) {
+          const dt = new Date(s.latest_food_time);
+          document.getElementById('sum-food-time').textContent = `更新: ${dt.toLocaleTimeString()}`;
+        }
+      }
+
+      if (s.latest_cat_weight_g !== null && s.latest_cat_weight_g !== undefined && s.latest_cat_weight_g > 0) {
+        document.getElementById('sum-cat-weight').innerHTML = `${Number(s.latest_cat_weight_g).toFixed(1)} <span style="font-size: 0.9rem; font-weight: normal;">g</span>`;
+        if (s.latest_weight_time) {
+          const dt = new Date(s.latest_weight_time);
+          document.getElementById('sum-cat-time').textContent = `測定: ${dt.toLocaleTimeString()}`;
+        }
+      } else {
+        document.getElementById('sum-cat-weight').innerHTML = `-- <span style="font-size: 0.9rem; font-weight: normal;">g</span>`;
+        document.getElementById('sum-cat-time').textContent = `未測定`;
+      }
+
+      document.getElementById('sum-meals-count').innerHTML = `${s.today_meals_count} <span style="font-size: 0.9rem; font-weight: normal;">回</span>`;
+      document.getElementById('sum-food-eaten').textContent = `食べた量: ${s.today_food_eaten_g}g`;
+
+      if (s.latest_temp_c !== null && s.latest_temp_c !== undefined) {
+        document.getElementById('sum-env-temp').innerHTML = `${Number(s.latest_temp_c).toFixed(1)} <span style="font-size: 0.9rem; font-weight: normal;">°C</span>`;
+        const humStr = s.latest_humidity_pct ? `${Number(s.latest_humidity_pct).toFixed(0)}%` : '--%';
+        const pressStr = s.latest_pressure_hpa ? `${Number(s.latest_pressure_hpa).toFixed(0)} hPa` : '-- hPa';
+        document.getElementById('sum-env-sub').textContent = `湿度: ${humStr} / 気圧: ${pressStr}`;
+      }
+
+      document.getElementById('sum-events-count').textContent = s.total_events_today;
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`tab-${tab}`).classList.add('active');
+      renderChart();
+    }
+
+    function setRange(range) {
+      currentRange = range;
+      document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`range-${range}`).classList.add('active');
+      fetchCloudData();
+    }
+
+    function renderChart() {
+      if (!cloudChart || cloudEvents.length === 0) return;
+
+      const filtered = [...cloudEvents].reverse(); // Oldest to newest
+      const labels = filtered.map(e => {
+        const d = new Date(e.timestamp);
+        return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+      });
+
+      if (currentTab === 'weight') {
+        cloudChart.data.labels = labels;
+        cloudChart.data.datasets = [{
+          label: '餌皿残量 (g)',
+          data: filtered.map(e => e.weight_g !== null ? e.weight_g : null),
+          borderColor: '#f0883e',
+          backgroundColor: 'rgba(240, 136, 62, 0.15)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 2,
+          borderWidth: 2
+        }];
+        cloudChart.options.scales = {
+          x: { grid: { color: 'rgba(240, 246, 252, 0.05)' } },
+          y: { title: { display: true, text: '重量 (g)', color: '#f0883e' }, grid: { color: 'rgba(240, 246, 252, 0.05)' }, suggestedMin: 0 }
+        };
+
+      } else if (currentTab === 'env') {
+        cloudChart.data.labels = labels;
+        cloudChart.data.datasets = [
+          {
+            label: '室温 (°C)',
+            data: filtered.map(e => e.temperature_c !== null ? e.temperature_c : null),
+            borderColor: '#3fb950',
+            backgroundColor: 'rgba(63, 185, 80, 0.1)',
+            yAxisID: 'yTemp',
+            tension: 0.3,
+            borderWidth: 2
+          },
+          {
+            label: '湿度 (%)',
+            data: filtered.map(e => e.humidity_pct !== null ? e.humidity_pct : null),
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+            yAxisID: 'yHum',
+            tension: 0.3,
+            borderWidth: 2
+          }
+        ];
+        cloudChart.options.scales = {
+          x: { grid: { color: 'rgba(240, 246, 252, 0.05)' } },
+          yTemp: { type: 'linear', position: 'left', title: { display: true, text: '温度 (°C)', color: '#3fb950' }, grid: { color: 'rgba(240, 246, 252, 0.05)' } },
+          yHum: { type: 'linear', position: 'right', title: { display: true, text: '湿度 (%)', color: '#38bdf8' }, grid: { drawOnChartArea: false }, suggestedMin: 0, suggestedMax: 100 }
+        };
+
+      } else if (currentTab === 'pressure') {
+        cloudChart.data.labels = labels;
+        cloudChart.data.datasets = [{
+          label: '気圧 (hPa)',
+          data: filtered.map(e => e.pressure_hpa !== null ? e.pressure_hpa : null),
+          borderColor: '#a371f7',
+          backgroundColor: 'rgba(163, 113, 247, 0.15)',
+          fill: true,
+          tension: 0.3,
+          borderWidth: 2
+        }];
+        cloudChart.options.scales = {
+          x: { grid: { color: 'rgba(240, 246, 252, 0.05)' } },
+          y: { title: { display: true, text: '気圧 (hPa)', color: '#a371f7' }, grid: { color: 'rgba(240, 246, 252, 0.05)' } }
+        };
+      }
+
+      cloudChart.update();
+    }
+
+    function updateTable(events) {
+      const tbody = document.getElementById('events-tbody');
+      if (!events || events.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">データがありません。</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = events.map(e => {
+        const dt = new Date(e.timestamp);
+        const timeStr = `${dt.toLocaleDateString()} ${dt.toLocaleTimeString()}`;
+        let weightStr = `${e.weight_g !== null && e.weight_g !== undefined ? Number(e.weight_g).toFixed(1) + 'g' : '-'}`;
+        if (e.delta_g !== null && e.delta_g !== undefined) {
+          const sign = e.delta_g > 0 ? '+' : '';
+          weightStr += ` (${sign}${Number(e.delta_g).toFixed(1)}g)`;
+        }
+
+        let envStr = '-';
+        if (e.temperature_c !== null && e.temperature_c !== undefined) {
+          envStr = `${Number(e.temperature_c).toFixed(1)}°C / ${e.humidity_pct ? Number(e.humidity_pct).toFixed(0) + '%' : ''}`;
+        }
+
+        return `
+          <tr>
+            <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem;">${timeStr}</td>
+            <td><strong>${escapeHtml(e.device_id)}</strong></td>
+            <td><span class="badge badge-${e.device_type || 'sensor'}">${escapeHtml(e.device_type)}</span></td>
+            <td>${escapeHtml(e.event_type)}</td>
+            <td style="text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 600;">${weightStr}</td>
+            <td style="font-size: 0.75rem; color: var(--text-muted);">${envStr}</td>
+            <td style="color: var(--text-muted); font-size: 0.75rem;">${escapeHtml(e.note || '')}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    initChart();
+    fetchCloudData();
+    setInterval(fetchCloudData, 10000);
+  </script>
+</body>
+</html>

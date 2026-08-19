@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"home_logging_server/handlers"
+	"home_logging_server/relay"
 	"home_logging_server/security"
 	"home_logging_server/storage"
 )
@@ -25,6 +26,7 @@ var staticFS embed.FS
 func main() {
 	port := flag.String("port", "8080", "HTTP server port")
 	dataFile := flag.String("data", "data/events.jsonl", "Path to jsonl storage file")
+	relayURL := flag.String("relay-url", "", "Optional cloud relay endpoint (e.g. https://veris.jp/home_logging/api/db_write.php)")
 	flag.Parse()
 
 	log.Println("==================================================")
@@ -43,7 +45,10 @@ func main() {
 		log.Fatalf("Fatal: Failed to initialize crypto manager: %v", err)
 	}
 
-	h := handlers.NewHandler(store, cryptoMgr)
+	// Initialize cloud relayer (Encrypted AES-256-GCM relay to XREA)
+	relayer := relay.NewRelayer(*relayURL)
+
+	h := handlers.NewHandler(store, cryptoMgr, relayer)
 	mux := http.NewServeMux()
 
 	// API Endpoints

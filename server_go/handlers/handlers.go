@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"home_logging_server/models"
+	"home_logging_server/relay"
 	"home_logging_server/security"
 	"home_logging_server/storage"
 )
@@ -17,10 +18,11 @@ import (
 type Handler struct {
 	storage *storage.Storage
 	crypto  *security.CryptoManager
+	relayer *relay.Relayer
 }
 
-func NewHandler(s *storage.Storage, c *security.CryptoManager) *Handler {
-	return &Handler{storage: s, crypto: c}
+func NewHandler(s *storage.Storage, c *security.CryptoManager, r *relay.Relayer) *Handler {
+	return &Handler{storage: s, crypto: c, relayer: r}
 }
 
 // enableCORS sets CORS headers for local/cross-origin requests.
@@ -139,6 +141,11 @@ func (h *Handler) handlePostEvent(w http.ResponseWriter, r *http.Request) {
 		savedCount++
 		log.Printf("[Event] Device: %s | Type: %s | Weight: %.2fg | Event: %s",
 			ev.DeviceID, ev.DeviceType, ev.WeightG, ev.EventType)
+	}
+
+	// Trigger asynchronous encrypted cloud relay to XREA if configured
+	if savedCount > 0 && h.relayer != nil {
+		h.relayer.EnqueueEvent(eventsToSave)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
