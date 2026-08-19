@@ -48,20 +48,30 @@ class HX711:
             return True
         return GPIO.input(self.dout_pin) == 0
 
-    def read_raw(self, timeout_sec: float = 2.0) -> Optional[int]:
+    def reset(self):
+        """Forces HX711 hardware reset (Pulse SCK HIGH >60µs, then LOW) to wake from sleep/hung state."""
+        if not self.mock:
+            GPIO.output(self.pd_sck_pin, True)
+            time.sleep(0.0001)  # 100 microseconds (exceeds 60µs power down threshold)
+            GPIO.output(self.pd_sck_pin, False)
+            time.sleep(0.0001)  # 100 microseconds wake-up time
+
+    def read_raw(self, timeout_sec: float = 1.0) -> Optional[int]:
         """Reads a single 24-bit raw value from HX711 with timeout handling and glitch detection."""
         if self.mock:
             time.sleep(0.01)
-            # Simulated noise around mock base
             return int(self._mock_base_adc + random.gauss(0, 150))
 
+        # Ensure SCK is LOW before waiting
         GPIO.output(self.pd_sck_pin, False)
 
         # Wait until sensor is ready (DOUT goes LOW)
         start_wait = time.time()
         while GPIO.input(self.dout_pin) == 1:
             if time.time() - start_wait > timeout_sec:
-                return None  # Timeout
+                # If hung, perform hardware reset to self-heal
+                self.reset()
+                return None
             time.sleep(0.001)
 
         raw_data = 0
@@ -81,7 +91,6 @@ class HX711:
             time.sleep(0.000001)
 
         # Rejection of common bus glitch / disconnected line values
-        # 0x000000 (all zeros) or 0xFFFFFF (all ones) or 0x7FFFFF / 0x800000 (saturation)
         if raw_data in (0, 0xFFFFFF, 0x7FFFFF, 0x800000):
             return None
 
@@ -95,26 +104,26 @@ class HX711:
 
         return raw_data
 
-    def read_average(self, times: int = 5, timeout_sec: float = 10.0) -> float:
+    def read_average(self, times: int = 5, timeout_sec: float = 5.0) -> float:
         """Reads multiple raw values, retries on timeout/glitch, filters outliers with median."""
         start_time = time.time()
         readings = []
         
-        # Collect extra samples to ensure median stability
         target_count = max(times, 5)
         while len(readings) < target_count and (time.time() - start_time < timeout_sec):
-            val = self.read_raw(timeout_sec=1.0)
+            val = self.read_raw(timeout_sec=0.5)
             if val is not None:
                 readings.append(val)
             time.sleep(0.005)
 
         if not readings:
-            raise TimeoutError("HX711 センサーからの応答がありませんでした (配線または他のプロセスとの競合を確認してください)")
+            # Self-heal on timeout
+            self.reset()
+            raise TimeoutError("HX711 センサーからの応答がありませんでした (自動リセットを実行しました)")
 
         # Sort and remove extreme outliers if enough samples
         readings.sort()
         if len(readings) >= 5:
-            # Discard highest and lowest
             trimmed = readings[1:-1]
             return float(statistics.median(trimmed))
 
