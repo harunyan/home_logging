@@ -67,12 +67,14 @@ class HX711:
         raw_data = 0
         for _ in range(24):
             GPIO.output(self.pd_sck_pin, True)
-            raw_data = (raw_data << 1) | GPIO.input(self.dout_pin)
+            _ = GPIO.input(self.dout_pin)
             GPIO.output(self.pd_sck_pin, False)
+            raw_data = (raw_data << 1) | GPIO.input(self.dout_pin)
 
         # Additional pulses to set gain for next reading
         for _ in range(self._gain_pulses):
             GPIO.output(self.pd_sck_pin, True)
+            _ = GPIO.input(self.dout_pin)
             GPIO.output(self.pd_sck_pin, False)
 
         # Convert 2's complement 24-bit to signed integer
@@ -81,7 +83,7 @@ class HX711:
 
         return raw_data
 
-    def read_average(self, times: int = 5, timeout_sec: float = 15.0) -> float:
+    def read_average(self, times: int = 5, timeout_sec: float = 30.0) -> float:
         """Reads multiple raw values, retries on timeout, filters outliers with median."""
         start_time = time.time()
         readings = []
