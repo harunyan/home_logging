@@ -95,7 +95,7 @@ class ScaleMonitor:
         cat_present = False
         start_time = None
         last_env_time = time.time()
-        env_interval = self.config.get("env_interval_sec", 180)  # default 3 mins
+        env_interval = self.config.get("env_interval_sec", 60)  # default 1 min
 
         while True:
             try:
@@ -182,9 +182,9 @@ class FeederMonitor:
         print(f"初期基準重量: {baseline:.1f}g")
 
         last_ping_time = time.time()
-        ping_interval = 300  # 5 minutes periodic sync
+        ping_interval = self.config.get("ping_interval_sec", 60)  # 1分間隔の定期同期
         last_env_time = time.time()
-        env_interval = self.config.get("env_interval_sec", 180)
+        env_interval = self.config.get("env_interval_sec", 60)    # 1分間隔の環境測定
 
         while True:
             try:
@@ -192,7 +192,7 @@ class FeederMonitor:
                 delta = current - baseline
                 now = time.time()
 
-                # Detect significant weight change
+                # Detect significant weight change (食事・補充の検知)
                 if abs(delta) >= self.change_threshold:
                     time.sleep(2.0)
                     stable_val = self.hx.get_weight(times=10)
@@ -232,35 +232,20 @@ class FeederMonitor:
                         self.sender.send_event(payload)
                         baseline = stable_val
 
-                # Periodic status ping
+                # 1分おきの定期残量同期 (定期死活監視 ＋ 最新残量 ＋ 温湿度)
                 if now - last_ping_time >= ping_interval:
                     payload = {
                         "device_id": self.device_id,
                         "device_type": self.device_type,
-                        "event_type": "periodic_ping",
+                        "event_type": "food_level",
                         "weight_g": round(current, 2),
-                        "note": "定期死活監視",
+                        "note": "1分定期残量同期",
                         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
                     }
                     if self.env_sensor:
                         payload.update(self.env_sensor.read_all())
                     self.sender.send_event(payload)
                     last_ping_time = now
-
-                # Periodic environment logging
-                if self.env_sensor and (now - last_env_time >= env_interval):
-                    env_data = self.env_sensor.read_all()
-                    if env_data:
-                        print(f"🌡️ [ENV IV] Temp: {env_data.get('temperature_c')}°C | Hum: {env_data.get('humidity_pct')}%")
-                        self.sender.send_event({
-                            "device_id": f"{self.device_id}-env",
-                            "device_type": "env_sensor",
-                            "event_type": "env_measured",
-                            "note": "M5Stack ENV IV 定期計測",
-                            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-                            **env_data
-                        })
-                    last_env_time = now
 
                 time.sleep(self.config.get("sample_interval_sec", 1.0))
 
