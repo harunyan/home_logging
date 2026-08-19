@@ -29,9 +29,9 @@ CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
 def load_config() -> Dict[str, Any]:
     default_config = {
         "server_url": "http://192.168.1.129:8080",
-        "device_id": "raspi4-cat-scale",
-        "device_type": "scale",
-        "mode": "scale",
+        "device_id": "raspi4-feeder-01",
+        "device_type": "feeder",
+        "mode": "feeder",
         "pin_dout": 6,
         "pin_pd_sck": 5,
         "gain": 128,

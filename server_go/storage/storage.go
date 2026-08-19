@@ -238,6 +238,14 @@ func (s *Storage) GetSummary() models.SummaryStats {
 				}
 			}
 
+			// 給餌器の餌残量 (DeviceType が feeder または EventType が food_level)
+			if ev.DeviceType == "feeder" || ev.EventType == "food_level" {
+				if ev.Timestamp.After(summary.LatestFoodTime) {
+					summary.LatestFoodWeightG = ev.WeightG
+					summary.LatestFoodTime = ev.Timestamp
+				}
+			}
+
 			// 猫の体重測定 (DeviceType が scale かつ 1000g 以上の場合のみ)
 			if ev.DeviceType == "scale" && ev.EventType == "weight_measured" && ev.WeightG >= 1000 {
 				if ev.Timestamp.After(summary.LatestWeightTime) {

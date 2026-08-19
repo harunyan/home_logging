@@ -315,19 +315,24 @@
     <!-- Summary Statistics -->
     <div class="summary-grid">
       <div class="card">
+        <div class="card-title"><span>餌皿の現在残量</span> <span>🍽️</span></div>
+        <div class="card-value val-orange" id="sum-food-weight">-- <span style="font-size: 1rem; font-weight: normal;">g</span></div>
+        <div class="card-subtext" id="sum-food-time">未測定</div>
+      </div>
+      <div class="card">
         <div class="card-title"><span>猫の最新測定体重</span> <span>⚖️</span></div>
         <div class="card-value val-cyan" id="sum-cat-weight">-- <span style="font-size: 1rem; font-weight: normal;">g</span></div>
         <div class="card-subtext" id="sum-cat-time">未測定</div>
       </div>
       <div class="card">
-        <div class="card-title"><span>本日の食事回数</span> <span>🍽️</span></div>
-        <div class="card-value val-orange" id="sum-meals-count">0 <span style="font-size: 1rem; font-weight: normal;">回</span></div>
-        <div class="card-subtext" id="sum-food-eaten">食べた量: 0.0g</div>
-      </div>
-      <div class="card">
         <div class="card-title"><span>室内環境 (ENV IV)</span> <span>🌡️</span></div>
         <div class="card-value val-green" id="sum-env-temp">--.- <span style="font-size: 1rem; font-weight: normal;">°C</span></div>
         <div class="card-subtext" id="sum-env-sub">湿度: --% / 気圧: -- hPa</div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>本日の食事回数</span> <span>🥣</span></div>
+        <div class="card-value val-orange" id="sum-meals-count">0 <span style="font-size: 1rem; font-weight: normal;">回</span></div>
+        <div class="card-subtext" id="sum-food-eaten">食べた量: 0.0g</div>
       </div>
       <div class="card">
         <div class="card-title"><span>本日の総受信イベント</span> <span>📡</span></div>
@@ -405,6 +410,20 @@
 
     function updateSummary(s) {
       if (!s) return;
+
+      // 餌皿の残量
+      if (s.latest_food_weight_g > 0 || (s.latest_food_time && s.latest_food_weight_g >= 0)) {
+        document.getElementById('sum-food-weight').innerHTML = `${s.latest_food_weight_g.toFixed(1)} <span style="font-size: 1rem; font-weight: normal;">g</span>`;
+        if (s.latest_food_time) {
+          const dt = new Date(s.latest_food_time);
+          document.getElementById('sum-food-time').textContent = `更新: ${dt.toLocaleTimeString()}`;
+        }
+      } else {
+        document.getElementById('sum-food-weight').innerHTML = `-- <span style="font-size: 1rem; font-weight: normal;">g</span>`;
+        document.getElementById('sum-food-time').textContent = `未測定`;
+      }
+
+      // 猫の体重
       if (s.latest_cat_weight_g > 0) {
         document.getElementById('sum-cat-weight').innerHTML = `${s.latest_cat_weight_g.toFixed(1)} <span style="font-size: 1rem; font-weight: normal;">g</span> (${(s.latest_cat_weight_g / 1000).toFixed(2)} kg)`;
         const dt = new Date(s.latest_weight_time);

@@ -38,8 +38,10 @@ type SummaryStats struct {
 	TotalEventsToday   int       `json:"total_events_today"`
 	TodayMealsCount    int       `json:"today_meals_count"`
 	TodayFoodEatenG    float64   `json:"today_food_eaten_g"`
+	LatestFoodWeightG  float64   `json:"latest_food_weight_g"`
+	LatestFoodTime     time.Time `json:"latest_food_time,omitempty"`
 	LatestCatWeightG   float64   `json:"latest_cat_weight_g"`
-	LatestWeightTime   time.Time `json:"latest_weight_time"`
+	LatestWeightTime   time.Time `json:"latest_weight_time,omitempty"`
 	LatestTempC        *float64  `json:"latest_temp_c,omitempty"`
 	LatestHumidityPct  *float64  `json:"latest_humidity_pct,omitempty"`
 	LatestPressureHpa  *float64  `json:"latest_pressure_hpa,omitempty"`
