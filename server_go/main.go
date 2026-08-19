@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -60,10 +61,13 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
+	// Print local IPs for easy configuration
+	printLocalIPs(*port)
+
 	// Server start in goroutine
 	go func() {
-		log.Printf("🚀 Server started on http://localhost:%s (Listening on all interfaces: %s)", *port, addr)
-		log.Printf("📁 Data file: %s", *dataFile)
+		log.Printf("🚀 Server listening on all network interfaces (%s)", addr)
+		log.Printf("📁 Storage file: %s", *dataFile)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("Server error: %v", err)
 		}
@@ -83,3 +87,20 @@ func main() {
 	}
 	log.Println("Server stopped. Bye!")
 }
+
+// printLocalIPs prints network URLs available on this machine.
+func printLocalIPs(port string) {
+	log.Printf("🌐 Local Dashboard: http://localhost:%s", port)
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return
+	}
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				log.Printf("📡 LAN Dashboard / API: http://%s:%s", ipnet.IP.String(), port)
+			}
+		}
+	}
+}
+
