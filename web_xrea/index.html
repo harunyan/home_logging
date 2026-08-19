@@ -436,11 +436,11 @@
       const ctx = document.getElementById('cloudChart').getContext('2d');
       cloudChart = new Chart(ctx, {
         type: 'line',
-        data: { labels: [], datasets: [] },
+        data: { datasets: [] },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          interaction: { mode: 'index', intersect: false },
+          interaction: { mode: 'nearest', intersect: false },
           plugins: {
             legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, color: '#94a3b8' } },
             tooltip: {
@@ -449,15 +449,65 @@
               bodyColor: '#f1f5f9',
               borderColor: 'rgba(56, 189, 248, 0.25)',
               borderWidth: 1,
-              padding: 10
+              padding: 10,
+              callbacks: {
+                title: function(items) {
+                  if (!items.length) return '';
+                  const d = new Date(items[0].parsed.x);
+                  return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`;
+                }
+              }
             }
           },
           scales: {
-            x: { grid: { color: 'rgba(148, 163, 184, 0.05)' }, ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 } },
+            x: { type: 'linear', grid: { color: 'rgba(148, 163, 184, 0.05)' } },
             y: { grid: { color: 'rgba(148, 163, 184, 0.05)' } }
           }
         }
       });
+    }
+
+    function getXAxisConfig() {
+      const now = Date.now();
+      let min = null;
+      let max = now;
+      let isShort = true;
+
+      if (currentRange === '1h') {
+        min = now - 3600 * 1000;
+      } else if (currentRange === '6h') {
+        min = now - 6 * 3600 * 1000;
+      } else if (currentRange === '24h') {
+        min = now - 24 * 3600 * 1000;
+      } else if (currentRange === '7d') {
+        min = now - 7 * 86400 * 1000;
+        isShort = false;
+      } else {
+        // 'all'
+        max = null;
+        isShort = false;
+      }
+
+      return {
+        type: 'linear',
+        min: min,
+        max: max,
+        grid: { color: 'rgba(148, 163, 184, 0.05)' },
+        ticks: {
+          maxRotation: 0,
+          autoSkip: true,
+          maxTicksLimit: 8,
+          callback: function(val) {
+            const d = new Date(val);
+            if (isNaN(d.getTime())) return '';
+            if (isShort) {
+              return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+            } else {
+              return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:00`;
+            }
+          }
+        }
+      };
     }
 
     async function fetchCloudData() {
@@ -529,29 +579,31 @@
     }
 
     function renderChart() {
-      if (!cloudChart || cloudEvents.length === 0) return;
+      if (!cloudChart) return;
 
       const filtered = [...cloudEvents].reverse(); // Oldest to newest
-      const labels = filtered.map(e => {
-        const d = new Date(e.timestamp);
-        return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-      });
+      const xAxisConfig = getXAxisConfig();
 
       if (currentTab === 'weight') {
-        cloudChart.data.labels = labels;
-        cloudChart.data.datasets = [{
-          label: '餌皿残量 (g)',
-          data: filtered.map(e => (e.weight_g !== null && e.weight_g >= 0 && e.weight_g <= 1000) ? e.weight_g : null),
-          borderColor: '#fb923c',
-          backgroundColor: 'rgba(251, 146, 60, 0.15)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 3,
-          pointBackgroundColor: '#fb923c',
-          borderWidth: 2
-        }];
+        const weightData = filtered
+          .map(e => ({ x: new Date(e.timestamp).getTime(), y: e.weight_g }))
+          .filter(pt => pt.y !== null && pt.y >= 0 && pt.y <= 1000);
+
+        cloudChart.data = {
+          datasets: [{
+            label: '餌皿残量 (g)',
+            data: weightData,
+            borderColor: '#fb923c',
+            backgroundColor: 'rgba(251, 146, 60, 0.15)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
+            pointBackgroundColor: '#fb923c',
+            borderWidth: 2
+          }]
+        };
         cloudChart.options.scales = {
-          x: { grid: { color: 'rgba(148, 163, 184, 0.05)' } },
+          x: xAxisConfig,
           y: { 
             title: { display: true, text: '重量 (g)', color: '#fb923c' }, 
             grid: { color: 'rgba(148, 163, 184, 0.05)' }, 
@@ -561,46 +613,63 @@
         };
 
       } else if (currentTab === 'env') {
-        cloudChart.data.labels = labels;
-        cloudChart.data.datasets = [
-          {
-            label: '室温 (°C)',
-            data: filtered.map(e => (e.temperature_c !== null && e.temperature_c >= -20 && e.temperature_c <= 60) ? e.temperature_c : null),
-            borderColor: '#34d399',
-            backgroundColor: 'rgba(52, 211, 153, 0.1)',
-            yAxisID: 'yTemp',
-            tension: 0.3,
-            borderWidth: 2
-          },
-          {
-            label: '湿度 (%)',
-            data: filtered.map(e => (e.humidity_pct !== null && e.humidity_pct >= 0 && e.humidity_pct <= 100) ? e.humidity_pct : null),
-            borderColor: '#38bdf8',
-            backgroundColor: 'rgba(56, 189, 248, 0.1)',
-            yAxisID: 'yHum',
-            tension: 0.3,
-            borderWidth: 2
-          }
-        ];
+        const tempData = filtered
+          .map(e => ({ x: new Date(e.timestamp).getTime(), y: e.temperature_c }))
+          .filter(pt => pt.y !== null && pt.y >= -20 && pt.y <= 60);
+
+        const humData = filtered
+          .map(e => ({ x: new Date(e.timestamp).getTime(), y: e.humidity_pct }))
+          .filter(pt => pt.y !== null && pt.y >= 0 && pt.y <= 100);
+
+        cloudChart.data = {
+          datasets: [
+            {
+              label: '室温 (°C)',
+              data: tempData,
+              borderColor: '#34d399',
+              backgroundColor: 'rgba(52, 211, 153, 0.1)',
+              yAxisID: 'yTemp',
+              tension: 0.3,
+              borderWidth: 2,
+              pointRadius: 2
+            },
+            {
+              label: '湿度 (%)',
+              data: humData,
+              borderColor: '#38bdf8',
+              backgroundColor: 'rgba(56, 189, 248, 0.1)',
+              yAxisID: 'yHum',
+              tension: 0.3,
+              borderWidth: 2,
+              pointRadius: 2
+            }
+          ]
+        };
         cloudChart.options.scales = {
-          x: { grid: { color: 'rgba(148, 163, 184, 0.05)' } },
+          x: xAxisConfig,
           yTemp: { type: 'linear', position: 'left', title: { display: true, text: '温度 (°C)', color: '#34d399' }, grid: { color: 'rgba(148, 163, 184, 0.05)' } },
           yHum: { type: 'linear', position: 'right', title: { display: true, text: '湿度 (%)', color: '#38bdf8' }, grid: { drawOnChartArea: false }, suggestedMin: 0, suggestedMax: 100 }
         };
 
       } else if (currentTab === 'pressure') {
-        cloudChart.data.labels = labels;
-        cloudChart.data.datasets = [{
-          label: '気圧 (hPa)',
-          data: filtered.map(e => (e.pressure_hpa !== null && e.pressure_hpa >= 800 && e.pressure_hpa <= 1200) ? e.pressure_hpa : null),
-          borderColor: '#a78bfa',
-          backgroundColor: 'rgba(167, 139, 250, 0.15)',
-          fill: true,
-          tension: 0.3,
-          borderWidth: 2
-        }];
+        const pressData = filtered
+          .map(e => ({ x: new Date(e.timestamp).getTime(), y: e.pressure_hpa }))
+          .filter(pt => pt.y !== null && pt.y >= 800 && pt.y <= 1200);
+
+        cloudChart.data = {
+          datasets: [{
+            label: '気圧 (hPa)',
+            data: pressData,
+            borderColor: '#a78bfa',
+            backgroundColor: 'rgba(167, 139, 250, 0.15)',
+            fill: true,
+            tension: 0.3,
+            borderWidth: 2,
+            pointRadius: 2
+          }]
+        };
         cloudChart.options.scales = {
-          x: { grid: { color: 'rgba(148, 163, 184, 0.05)' } },
+          x: xAxisConfig,
           y: { title: { display: true, text: '気圧 (hPa)', color: '#a78bfa' }, grid: { color: 'rgba(148, 163, 184, 0.05)' } }
         };
       }

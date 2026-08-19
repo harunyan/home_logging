@@ -40,15 +40,20 @@ if (!empty($eventType)) {
 $whereClauses[] = "(weight_g IS NULL OR (weight_g >= 0 AND weight_g <= 25000 AND NOT ((device_type = 'feeder' OR event_type = 'food_level') AND weight_g > 1000)))";
 
 if (!empty($range) && $range !== 'all') {
-    $cutoff = '';
+    $seconds = 0;
     switch ($range) {
-        case '1h':  $cutoff = date('Y-m-d H:i:s', strtotime('-1 hour')); break;
-        case '6h':  $cutoff = date('Y-m-d H:i:s', strtotime('-6 hours')); break;
-        case '24h': $cutoff = date('Y-m-d H:i:s', strtotime('-24 hours')); break;
-        case '7d':  $cutoff = date('Y-m-d H:i:s', strtotime('-7 days')); break;
+        case '1h':  $seconds = 3600; break;
+        case '6h':  $seconds = 6 * 3600; break;
+        case '24h': $seconds = 24 * 3600; break;
+        case '7d':  $seconds = 7 * 86400; break;
     }
-    if (!empty($cutoff)) {
-        $whereClauses[] = "timestamp >= '" . SQLite3::escapeString($cutoff) . "'";
+    if ($seconds > 0) {
+        $now = time();
+        $cutoffUtcIso = gmdate('Y-m-d\TH:i:s', $now - $seconds);
+        $cutoffUtcStr = gmdate('Y-m-d H:i:s', $now - $seconds);
+        $cutoffJstStr = date('Y-m-d H:i:s', $now - $seconds);
+        
+        $whereClauses[] = "(timestamp >= '" . SQLite3::escapeString($cutoffUtcIso) . "' OR timestamp >= '" . SQLite3::escapeString($cutoffUtcStr) . "' OR timestamp >= '" . SQLite3::escapeString($cutoffJstStr) . "' OR received_at >= '" . SQLite3::escapeString($cutoffJstStr) . "')";
     }
 }
 
