@@ -146,8 +146,8 @@ class ScaleMonitor:
                     if env_data:
                         print(f"🌡️ [ENV IV] Temp: {env_data.get('temperature_c')}°C | Hum: {env_data.get('humidity_pct')}%")
                         self.sender.send_event({
-                            "device_id": f"{self.device_id}-env",
-                            "device_type": "env_sensor",
+                            "device_id": self.device_id,
+                            "device_type": self.device_type,
                             "event_type": "env_measured",
                             "note": "M5Stack ENV IV 定期計測",
                             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
