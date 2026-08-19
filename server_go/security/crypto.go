@@ -10,6 +10,8 @@ import (
 	"encoding/base64"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
 )
 
 const (
@@ -25,19 +27,40 @@ type CryptoManager struct {
 	pubKeyB64  string
 }
 
-// NewCryptoManager generates a new ephemeral X25519 key pair on server start.
-func NewCryptoManager() (*CryptoManager, error) {
+// NewCryptoManager loads existing X25519 key or generates and saves a persistent key pair.
+func NewCryptoManager(keyPath string) (*CryptoManager, error) {
 	curve := ecdh.X25519()
-	privKey, err := curve.GenerateKey(rand.Reader)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate X25519 key: %w", err)
+	var privKey *ecdh.PrivateKey
+
+	// 1. Try loading existing key
+	if keyPath != "" {
+		if data, err := os.ReadFile(keyPath); err == nil && len(data) == 32 {
+			if loadedKey, err := curve.NewPrivateKey(data); err == nil {
+				privKey = loadedKey
+				log.Printf("[Security] 🔑 Loaded persistent X25519 Key from %s", keyPath)
+			}
+		}
+	}
+
+	// 2. Generate new key if not loaded
+	if privKey == nil {
+		newKey, err := curve.GenerateKey(rand.Reader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate X25519 key: %w", err)
+		}
+		privKey = newKey
+		if keyPath != "" {
+			_ = os.MkdirAll(filepath.Dir(keyPath), 0755)
+			_ = os.WriteFile(keyPath, privKey.Bytes(), 0600)
+			log.Printf("[Security] 🔑 Generated & saved persistent X25519 Key to %s", keyPath)
+		}
 	}
 
 	pubKey := privKey.PublicKey()
 	pubKeyBytes := pubKey.Bytes()
 	pubKeyB64 := base64.StdEncoding.EncodeToString(pubKeyBytes)
 
-	log.Printf("[Security] 🔑 Ephemeral X25519 Key Pair initialized (Pubkey: %s...)", pubKeyB64[:16])
+	log.Printf("[Security] 🔑 Server Public Key ready (Pubkey: %s...)", pubKeyB64[:16])
 
 	return &CryptoManager{
 		privateKey: privKey,

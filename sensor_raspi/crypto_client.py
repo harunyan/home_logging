@@ -47,6 +47,10 @@ class CryptoClient:
     def is_available(self) -> bool:
         return self._has_crypto
 
+    def invalidate_key(self):
+        """Clears cached server public key so the next attempt will fetch a fresh key."""
+        self._server_pubkey_raw = None
+
     def fetch_server_public_key(self) -> bool:
         """Fetches the server's ephemeral public key from /api/v1/pubkey."""
         if not self._has_crypto:

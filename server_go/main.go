@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"syscall"
 	"time"
 
@@ -39,8 +40,9 @@ func main() {
 		log.Fatalf("Fatal: Failed to initialize storage: %v", err)
 	}
 
-	// Initialize crypto manager (Password-free ephemeral X25519 + AES-256-GCM)
-	cryptoMgr, err := security.NewCryptoManager()
+	// Initialize crypto manager with persistent server key (Survives restarts)
+	keyPath := filepath.Join(filepath.Dir(*dataFile), "server_x25519.key")
+	cryptoMgr, err := security.NewCryptoManager(keyPath)
 	if err != nil {
 		log.Fatalf("Fatal: Failed to initialize crypto manager: %v", err)
 	}

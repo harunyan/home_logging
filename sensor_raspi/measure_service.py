@@ -57,28 +57,37 @@ class WinSVSender:
         if not self.queue:
             return True
 
-        try:
-            # Encrypt payload with ephemeral X25519 + AES-256-GCM (no passwords needed)
-            post_data = self.crypto.encrypt_data(self.queue)
-            payload = json.dumps(post_data).encode("utf-8")
+        for attempt in range(2):
+            try:
+                # Encrypt payload with ephemeral X25519 + AES-256-GCM (no passwords needed)
+                post_data = self.crypto.encrypt_data(self.queue)
+                payload = json.dumps(post_data).encode("utf-8")
 
-            req = urllib.request.Request(
-                self.endpoint,
-                data=payload,
-                headers={"Content-Type": "application/json", "User-Agent": "Raspi-Cat-Logger"},
-                method="POST"
-            )
-            with urllib.request.urlopen(req, timeout=4.0) as resp:
-                if resp.status in (200, 201):
-                    count = len(self.queue)
-                    enc_tag = "🔒 [Encrypted AES-256-GCM]" if (isinstance(post_data, dict) and post_data.get("encrypted")) else "📡 [Plaintext]"
-                    print(f"{enc_tag} [WinSV] Sent {count} event(s) successfully.")
-                    self.queue.clear()
-                    self._save_queue()
-                    return True
-        except (urllib.error.URLError, TimeoutError, ConnectionRefusedError, OSError) as e:
-            print(f"⚠️ [WinSV] Send failed (buffered {len(self.queue)} events): {e}")
-            return False
+                req = urllib.request.Request(
+                    self.endpoint,
+                    data=payload,
+                    headers={"Content-Type": "application/json", "User-Agent": "Raspi-Cat-Logger"},
+                    method="POST"
+                )
+                with urllib.request.urlopen(req, timeout=4.0) as resp:
+                    if resp.status in (200, 201):
+                        count = len(self.queue)
+                        enc_tag = "🔒 [Encrypted AES-256-GCM]" if (isinstance(post_data, dict) and post_data.get("encrypted")) else "📡 [Plaintext]"
+                        print(f"{enc_tag} [WinSV] Sent {count} event(s) successfully.")
+                        self.queue.clear()
+                        self._save_queue()
+                        return True
+            except urllib.error.HTTPError as e:
+                print(f"⚠️ [WinSV] HTTP {e.code} ({e.reason}) -> Server key may have changed, refreshing public key...")
+                self.crypto.invalidate_key()
+                self.crypto.fetch_server_public_key()
+                if attempt == 0:
+                    time.sleep(0.5)
+                    continue  # Retry with fresh key immediately
+                return False
+            except (urllib.error.URLError, TimeoutError, ConnectionRefusedError, OSError) as e:
+                print(f"⚠️ [WinSV] Send failed (buffered {len(self.queue)} events): {e}")
+                return False
 
         return False
 
