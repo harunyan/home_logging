@@ -564,17 +564,59 @@
       document.getElementById('sum-events-count').textContent = s.total_events_today;
     }
 
+    function initStateFromUrlOrStorage() {
+      const params = new URLSearchParams(window.location.search);
+      const validRanges = ['1h', '6h', '24h', '7d', 'all'];
+      const validTabs = ['weight', 'env', 'pressure'];
+
+      const urlRange = params.get('range');
+      const savedRange = localStorage.getItem('cat_log_range');
+      if (urlRange && validRanges.includes(urlRange)) {
+        currentRange = urlRange;
+      } else if (savedRange && validRanges.includes(savedRange)) {
+        currentRange = savedRange;
+      }
+
+      const urlTab = params.get('tab');
+      const savedTab = localStorage.getItem('cat_log_tab');
+      if (urlTab && validTabs.includes(urlTab)) {
+        currentTab = urlTab;
+      } else if (savedTab && validTabs.includes(savedTab)) {
+        currentTab = savedTab;
+      }
+
+      // Sync UI button active states
+      document.querySelectorAll('.range-btn').forEach(b => {
+        b.classList.toggle('active', b.id === `range-${currentRange}`);
+      });
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.toggle('active', b.id === `tab-${currentTab}`);
+      });
+    }
+
+    function syncStateToUrlAndStorage() {
+      localStorage.setItem('cat_log_range', currentRange);
+      localStorage.setItem('cat_log_tab', currentTab);
+      
+      const newUrl = `${window.location.pathname}?range=${currentRange}&tab=${currentTab}`;
+      window.history.replaceState(null, '', newUrl);
+    }
+
     function switchTab(tab) {
       currentTab = tab;
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById(`tab-${tab}`).classList.add('active');
+      const activeBtn = document.getElementById(`tab-${tab}`);
+      if (activeBtn) activeBtn.classList.add('active');
+      syncStateToUrlAndStorage();
       renderChart();
     }
 
     function setRange(range) {
       currentRange = range;
       document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById(`range-${range}`).classList.add('active');
+      const activeBtn = document.getElementById(`range-${range}`);
+      if (activeBtn) activeBtn.classList.add('active');
+      syncStateToUrlAndStorage();
       fetchCloudData();
     }
 
@@ -722,6 +764,7 @@
         .replace(/'/g, '&#039;');
     }
 
+    initStateFromUrlOrStorage();
     initChart();
     fetchCloudData();
     setInterval(fetchCloudData, 60000); // 1分おきに自動更新
