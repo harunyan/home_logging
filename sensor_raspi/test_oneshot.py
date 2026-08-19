@@ -125,13 +125,17 @@ def main():
         print(f"  │  (Windows側で home_logging_server.exe が起動しているか、IP/ポート/ファイアウォールを確認してください)")
 
     # 3-2. テストイベント送信
+    dev_type = config.get("device_type", "feeder")
+    event_type = "weight_measured" if dev_type == "scale" else "food_level"
+    note_text = "1-Shot テスト測定 (体重計)" if dev_type == "scale" else "1-Shot テスト測定 (給餌器/餌皿)"
+
     payload = [{
         "device_id": device_id,
-        "device_type": config.get("device_type", "scale"),
-        "event_type": "weight_measured",
+        "device_type": dev_type,
+        "event_type": event_type,
         "weight_g": round(weight_g, 2) if weight_g is not None else 0.0,
         "raw_value": int(raw_val) if raw_val is not None else 0,
-        "note": "1-Shot テスト測定",
+        "note": note_text,
         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         **env_data
     }]

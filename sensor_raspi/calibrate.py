@@ -19,11 +19,16 @@ def load_config():
         with open(CONFIG_FILE, "r", encoding="utf-8") as f:
             return json.load(f)
     return {
-        "pin_dout": 5,
-        "pin_pd_sck": 6,
+        "server_url": "http://192.168.1.129:8080",
+        "device_id": "raspi4-feeder-01",
+        "device_type": "feeder",
+        "mode": "feeder",
+        "pin_dout": 6,
+        "pin_pd_sck": 5,
         "gain": 128,
-        "reference_unit": 1.0,
-        "offset": 0.0,
+        "reference_unit": 357.83,
+        "offset": 37524.28,
+        "enable_env_iv": True,
         "mock_mode": False
     }
 
