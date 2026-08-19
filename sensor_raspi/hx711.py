@@ -15,7 +15,7 @@ except (ImportError, RuntimeError):
 
 
 class HX711:
-    def __init__(self, dout_pin: int = 5, pd_sck_pin: int = 6, gain: int = 128, mock: bool = False):
+    def __init__(self, dout_pin: int = 6, pd_sck_pin: int = 5, gain: int = 64, mock: bool = False):
         self.dout_pin = dout_pin
         self.pd_sck_pin = pd_sck_pin
         self.gain = gain

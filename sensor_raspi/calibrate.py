@@ -25,7 +25,7 @@ def load_config():
         "mode": "feeder",
         "pin_dout": 6,
         "pin_pd_sck": 5,
-        "gain": 128,
+        "gain": 64,
         "reference_unit": 357.83,
         "offset": 37524.28,
         "enable_env_iv": True,

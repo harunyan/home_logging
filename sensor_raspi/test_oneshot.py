@@ -27,6 +27,17 @@ CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
 
 
 def load_config() -> Dict[str, Any]:
+    default_offset = 37524.28
+    # 既存のオートタレファイルがあれば優先読み込み
+    existing_tare_file = "/home/morimoto/www/adc_0g_hx711.txt"
+    if os.path.exists(existing_tare_file):
+        try:
+            with open(existing_tare_file, "r") as f:
+                default_offset = float(f.read().strip())
+                print(f"📄 既存のゼロ点ファイル ({existing_tare_file}) からオフセットを読み込みました: {default_offset}")
+        except Exception:
+            pass
+
     default_config = {
         "server_url": "http://192.168.1.129:8080",
         "device_id": "raspi4-feeder-01",
@@ -34,9 +45,9 @@ def load_config() -> Dict[str, Any]:
         "mode": "feeder",
         "pin_dout": 6,
         "pin_pd_sck": 5,
-        "gain": 128,
+        "gain": 64,
         "reference_unit": 357.83,
-        "offset": 37524.28,
+        "offset": default_offset,
         "enable_env_iv": True,
         "i2c_bus": 1,
         "mock_mode": False
