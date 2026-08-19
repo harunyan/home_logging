@@ -238,8 +238,8 @@ func (s *Storage) GetSummary() models.SummaryStats {
 				}
 			}
 
-			// 給餌器の餌残量 (DeviceType が feeder または EventType が food_level)
-			if ev.DeviceType == "feeder" || ev.EventType == "food_level" {
+			// 給餌器の餌残量 (重量測定イベント food_level / meal_finished / refill または WeightG > 0 のみ)
+			if (ev.EventType == "food_level" || ev.EventType == "meal_finished" || ev.EventType == "refill") || (ev.DeviceType == "feeder" && ev.EventType != "env_measured" && ev.WeightG > 0) {
 				if ev.Timestamp.After(summary.LatestFoodTime) {
 					summary.LatestFoodWeightG = ev.WeightG
 					summary.LatestFoodTime = ev.Timestamp
