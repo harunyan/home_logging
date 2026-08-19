@@ -7,19 +7,22 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <!-- Chart.js for Interactive Navy-Themed Graphs -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
       --bg-primary: #0d1117;
       --bg-secondary: #161b22;
-      --bg-card: rgba(22, 27, 34, 0.85);
+      --bg-card: rgba(22, 27, 34, 0.88);
       --border-color: rgba(240, 246, 252, 0.1);
       --accent-orange: #f0883e;
       --accent-cyan: #38bdf8;
       --accent-green: #3fb950;
       --accent-purple: #a371f7;
+      --accent-pink: #f43f5e;
       --text-main: #f0f6fc;
       --text-muted: #8b949e;
-      --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
     }
 
     * {
@@ -38,7 +41,7 @@
     }
 
     .container {
-      max-width: 1200px;
+      max-width: 1300px;
       margin: 0 auto;
     }
 
@@ -46,9 +49,11 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 28px;
+      margin-bottom: 24px;
       padding-bottom: 16px;
       border-bottom: 1px solid var(--border-color);
+      flex-wrap: wrap;
+      gap: 16px;
     }
 
     .brand {
@@ -58,7 +63,7 @@
     }
 
     .brand-icon {
-      font-size: 2rem;
+      font-size: 2.2rem;
       background: linear-gradient(135deg, #f0883e, #ec4899);
       -webkit-background-clip: text;
       background-clip: text;
@@ -120,9 +125,9 @@
     /* Summary Grid */
     .summary-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 18px;
-      margin-bottom: 28px;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
     }
 
     .card {
@@ -130,7 +135,7 @@
       backdrop-filter: blur(12px);
       border: 1px solid var(--border-color);
       border-radius: 14px;
-      padding: 20px;
+      padding: 18px;
       box-shadow: var(--card-shadow);
       position: relative;
       overflow: hidden;
@@ -143,7 +148,7 @@
     }
 
     .card-title {
-      font-size: 0.85rem;
+      font-size: 0.82rem;
       color: var(--text-muted);
       margin-bottom: 8px;
       display: flex;
@@ -152,7 +157,7 @@
     }
 
     .card-value {
-      font-size: 2rem;
+      font-size: 1.8rem;
       font-weight: 700;
       font-family: 'JetBrains Mono', monospace;
       margin-bottom: 4px;
@@ -168,6 +173,93 @@
     .val-green { color: var(--accent-green); }
     .val-purple { color: var(--accent-purple); }
 
+    /* Graph Section */
+    .graph-section {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: var(--card-shadow);
+      margin-bottom: 24px;
+    }
+
+    .graph-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      background: rgba(13, 17, 23, 0.8);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 6px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.82rem;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-main);
+    }
+
+    .tab-btn.active {
+      background: var(--bg-secondary);
+      color: var(--accent-cyan);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    .range-selector {
+      display: flex;
+      gap: 6px;
+      background: rgba(13, 17, 23, 0.8);
+      padding: 4px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    .range-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+    }
+
+    .range-btn.active {
+      background: var(--accent-cyan);
+      color: #0d1117;
+      font-weight: 700;
+    }
+
+    .chart-container {
+      position: relative;
+      height: 320px;
+      width: 100%;
+    }
+
     /* Layout Sections */
     .main-content {
       display: grid;
@@ -175,16 +267,16 @@
       gap: 24px;
     }
 
-    @media (max-width: 900px) {
+    @media (max-width: 950px) {
       .main-content {
         grid-template-columns: 1fr;
       }
     }
 
     .section-title {
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       font-weight: 600;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       display: flex;
       align-items: center;
       gap: 8px;
@@ -198,25 +290,31 @@
       border-radius: 14px;
       overflow: hidden;
       box-shadow: var(--card-shadow);
+      max-height: 420px;
+      overflow-y: auto;
     }
 
     table {
       width: 100%;
       border-collapse: collapse;
       text-align: left;
-      font-size: 0.85rem;
+      font-size: 0.82rem;
     }
 
     th {
-      background: rgba(255, 255, 255, 0.03);
-      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.04);
+      padding: 10px 14px;
       color: var(--text-muted);
       font-weight: 600;
       border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      backdrop-filter: blur(8px);
+      z-index: 1;
     }
 
     td {
-      padding: 12px 16px;
+      padding: 10px 14px;
       border-bottom: 1px solid rgba(240, 246, 252, 0.05);
     }
 
@@ -275,7 +373,7 @@
     .device-id {
       font-weight: 600;
       font-family: 'JetBrains Mono', monospace;
-      font-size: 0.9rem;
+      font-size: 0.88rem;
     }
 
     .device-meta {
@@ -289,7 +387,7 @@
       text-align: center;
       padding: 40px 20px;
       color: var(--text-muted);
-      font-size: 0.9rem;
+      font-size: 0.85rem;
     }
   </style>
 </head>
@@ -308,11 +406,10 @@
       </div>
       <div class="header-actions">
         <button class="btn" onclick="fetchData()">🔄 手動更新</button>
-        <button class="btn btn-primary" onclick="sendTestSignal()">⚡ テスト信号送信</button>
       </div>
     </header>
 
-    <!-- Summary Statistics -->
+    <!-- Summary Statistics Grid -->
     <div class="summary-grid">
       <div class="card">
         <div class="card-title"><span>餌皿の現在残量</span> <span>🍽️</span></div>
@@ -335,20 +432,40 @@
         <div class="card-subtext" id="sum-food-eaten">食べた量: 0.0g</div>
       </div>
       <div class="card">
-        <div class="card-title"><span>本日の総受信イベント</span> <span>📡</span></div>
+        <div class="card-title"><span>本日の総受信数</span> <span>📡</span></div>
         <div class="card-value val-purple" id="sum-events-count">0</div>
-        <div class="card-subtext">受信ログレコード数</div>
+        <div class="card-subtext">ログレコード数</div>
       </div>
       <div class="card">
         <div class="card-title"><span>登録デバイス数</span> <span>📶</span></div>
         <div class="card-value val-cyan" id="sum-devices-count">0 <span style="font-size: 1rem; font-weight: normal;">台</span></div>
-        <div class="card-subtext">Raspberry Pi クライアント</div>
+        <div class="card-subtext">稼働中クライアント</div>
       </div>
     </div>
 
-    <!-- Main Content Area -->
+    <!-- Interactive Time-Series Graphs (Navy Base Theme) -->
+    <div class="graph-section">
+      <div class="graph-header">
+        <div class="tabs">
+          <button class="tab-btn active" id="tab-weight" onclick="switchGraphTab('weight')">🍽️ 餌皿残量・重量</button>
+          <button class="tab-btn" id="tab-env" onclick="switchGraphTab('env')">🌡️ 室温・湿度</button>
+          <button class="tab-btn" id="tab-pressure" onclick="switchGraphTab('pressure')">⏱️ 気圧</button>
+        </div>
+        <div class="range-selector">
+          <button class="range-btn" id="range-60" onclick="setGraphRange(60)">1時間</button>
+          <button class="range-btn" id="range-360" onclick="setGraphRange(360)">6時間</button>
+          <button class="range-btn active" id="range-1440" onclick="setGraphRange(1440)">24時間</button>
+          <button class="range-btn" id="range-all" onclick="setGraphRange(0)">全件</button>
+        </div>
+      </div>
+      <div class="chart-container">
+        <canvas id="mainChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Main Content Area: History & Devices -->
     <div class="main-content">
-      <!-- Events History -->
+      <!-- Events History Table -->
       <div>
         <div class="section-title">
           <span>📋</span>
@@ -363,12 +480,13 @@
                 <th>種別</th>
                 <th>イベント</th>
                 <th style="text-align: right;">重量 / 差分</th>
+                <th>環境</th>
                 <th>メモ</th>
               </tr>
             </thead>
             <tbody id="events-tbody">
               <tr>
-                <td colspan="6" class="empty-state">データを受信していません。Raspberry Pi またはテスト信号を送信してください。</td>
+                <td colspan="7" class="empty-state">データを受信していません。</td>
               </tr>
             </tbody>
           </table>
@@ -391,17 +509,64 @@
   </div>
 
   <script>
+    let mainChart = null;
+    let currentTab = 'weight';
+    let currentRangeMinutes = 1440; // Default 24 hours
+    let rawEventsData = [];
+
+    // Chart.js Default Dark Theme Setup
+    Chart.defaults.color = '#8b949e';
+    Chart.defaults.borderColor = 'rgba(240, 246, 252, 0.08)';
+    Chart.defaults.font.family = "'Outfit', 'Noto Sans JP', sans-serif";
+
+    function initChart() {
+      const ctx = document.getElementById('mainChart').getContext('2d');
+      mainChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels: [], datasets: [] },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true } },
+            tooltip: {
+              backgroundColor: 'rgba(22, 27, 34, 0.95)',
+              titleColor: '#f0f6fc',
+              bodyColor: '#f0f6fc',
+              borderColor: 'rgba(240, 246, 252, 0.15)',
+              borderWidth: 1,
+              padding: 10,
+              displayColors: true
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: 'rgba(240, 246, 252, 0.05)' },
+              ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }
+            },
+            y: {
+              grid: { color: 'rgba(240, 246, 252, 0.05)' }
+            }
+          }
+        }
+      });
+    }
+
     async function fetchData() {
       try {
         const [sumRes, devRes, evRes] = await Promise.all([
           fetch('/api/v1/summary').then(r => r.json()),
           fetch('/api/v1/devices').then(r => r.json()),
-          fetch('/api/v1/events?limit=50').then(r => r.json())
+          fetch('/api/v1/events?limit=500').then(r => r.json())
         ]);
 
         updateSummary(sumRes);
         updateDevices(devRes.devices || []);
-        updateEvents(evRes.events || []);
+        rawEventsData = evRes.events || [];
+        updateEventsTable(rawEventsData.slice(0, 50));
+        renderChart();
+        document.getElementById('refresh-status').textContent = '● 自動更新中 (5s)';
       } catch (err) {
         console.error('Fetch error:', err);
         document.getElementById('refresh-status').textContent = '⚠️ 接続エラー';
@@ -432,6 +597,7 @@
         document.getElementById('sum-cat-weight').innerHTML = `-- <span style="font-size: 1rem; font-weight: normal;">g</span>`;
         document.getElementById('sum-cat-time').textContent = `未測定`;
       }
+
       document.getElementById('sum-meals-count').innerHTML = `${s.today_meals_count} <span style="font-size: 1rem; font-weight: normal;">回</span>`;
       document.getElementById('sum-food-eaten').textContent = `食べた量: ${s.today_food_eaten_g.toFixed(1)}g`;
 
@@ -447,6 +613,165 @@
 
       document.getElementById('sum-events-count').textContent = s.total_events_today;
       document.getElementById('sum-devices-count').innerHTML = `${s.active_devices_count} <span style="font-size: 1rem; font-weight: normal;">台</span>`;
+    }
+
+    function switchGraphTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.getElementById(`tab-${tab}`).classList.add('active');
+      renderChart();
+    }
+
+    function setGraphRange(minutes) {
+      currentRangeMinutes = minutes;
+      document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
+      const id = minutes === 0 ? 'range-all' : `range-${minutes}`;
+      const btn = document.getElementById(id);
+      if (btn) btn.classList.add('active');
+      renderChart();
+    }
+
+    function renderChart() {
+      if (!mainChart || rawEventsData.length === 0) return;
+
+      // Filter events by selected time range
+      let filtered = [...rawEventsData].reverse(); // chronological (oldest to newest)
+      if (currentRangeMinutes > 0) {
+        const cutoff = new Date(Date.now() - currentRangeMinutes * 60 * 1000);
+        filtered = filtered.filter(e => new Date(e.timestamp) >= cutoff);
+      }
+
+      if (filtered.length === 0) {
+        filtered = [...rawEventsData].reverse().slice(-10); // fallback to latest 10
+      }
+
+      const labels = filtered.map(e => {
+        const d = new Date(e.timestamp);
+        return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+      });
+
+      if (currentTab === 'weight') {
+        const weights = filtered.map(e => e.weight_g !== undefined ? e.weight_g : null);
+        mainChart.data.labels = labels;
+        mainChart.data.datasets = [{
+          label: '餌皿残量 (g)',
+          data: weights,
+          borderColor: '#f0883e',
+          backgroundColor: 'rgba(240, 136, 62, 0.15)',
+          fill: true,
+          tension: 0.3,
+          pointRadius: 3,
+          pointBackgroundColor: '#f0883e',
+          borderWidth: 2
+        }];
+        mainChart.options.scales = {
+          x: { grid: { color: 'rgba(240, 246, 252, 0.05)' } },
+          y: {
+            title: { display: true, text: '重量 (g)', color: '#f0883e' },
+            grid: { color: 'rgba(240, 246, 252, 0.05)' },
+            suggestedMin: 0
+          }
+        };
+
+      } else if (currentTab === 'env') {
+        const temps = filtered.map(e => e.temperature_c !== undefined && e.temperature_c !== null ? e.temperature_c : null);
+        const hums = filtered.map(e => e.humidity_pct !== undefined && e.humidity_pct !== null ? e.humidity_pct : null);
+        mainChart.data.labels = labels;
+        mainChart.data.datasets = [
+          {
+            label: '室温 (°C)',
+            data: temps,
+            borderColor: '#3fb950',
+            backgroundColor: 'rgba(63, 185, 80, 0.1)',
+            yAxisID: 'yTemp',
+            tension: 0.3,
+            borderWidth: 2
+          },
+          {
+            label: '湿度 (%)',
+            data: hums,
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.1)',
+            yAxisID: 'yHum',
+            tension: 0.3,
+            borderWidth: 2
+          }
+        ];
+        mainChart.options.scales = {
+          x: { grid: { color: 'rgba(240, 246, 252, 0.05)' } },
+          yTemp: {
+            type: 'linear',
+            position: 'left',
+            title: { display: true, text: '温度 (°C)', color: '#3fb950' },
+            grid: { color: 'rgba(240, 246, 252, 0.05)' }
+          },
+          yHum: {
+            type: 'linear',
+            position: 'right',
+            title: { display: true, text: '湿度 (%)', color: '#38bdf8' },
+            grid: { drawOnChartArea: false },
+            suggestedMin: 0,
+            suggestedMax: 100
+          }
+        };
+
+      } else if (currentTab === 'pressure') {
+        const pressures = filtered.map(e => e.pressure_hpa !== undefined && e.pressure_hpa !== null ? e.pressure_hpa : null);
+        mainChart.data.labels = labels;
+        mainChart.data.datasets = [{
+          label: '気圧 (hPa)',
+          data: pressures,
+          borderColor: '#a371f7',
+          backgroundColor: 'rgba(163, 113, 247, 0.15)',
+          fill: true,
+          tension: 0.3,
+          borderWidth: 2
+        }];
+        mainChart.options.scales = {
+          x: { grid: { color: 'rgba(240, 246, 252, 0.05)' } },
+          y: {
+            title: { display: true, text: '気圧 (hPa)', color: '#a371f7' },
+            grid: { color: 'rgba(240, 246, 252, 0.05)' }
+          }
+        };
+      }
+
+      mainChart.update();
+    }
+
+    function updateEventsTable(events) {
+      const tbody = document.getElementById('events-tbody');
+      if (!events || events.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">データがありません。</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = events.map(e => {
+        const dt = new Date(e.timestamp);
+        const timeStr = `${dt.toLocaleDateString()} ${dt.toLocaleTimeString()}`;
+        let weightStr = `${e.weight_g !== undefined ? e.weight_g.toFixed(1) + 'g' : '-'}`;
+        if (e.delta_g !== undefined && e.delta_g !== null) {
+          const sign = e.delta_g > 0 ? '+' : '';
+          weightStr += ` (${sign}${e.delta_g.toFixed(1)}g)`;
+        }
+
+        let envStr = '-';
+        if (e.temperature_c !== undefined && e.temperature_c !== null) {
+          envStr = `${e.temperature_c.toFixed(1)}°C / ${e.humidity_pct ? e.humidity_pct.toFixed(0) + '%' : ''}`;
+        }
+
+        return `
+          <tr>
+            <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;">${timeStr}</td>
+            <td><strong>${escapeHtml(e.device_id)}</strong></td>
+            <td><span class="badge badge-${e.device_type || 'sensor'}">${escapeHtml(e.device_type)}</span></td>
+            <td>${escapeHtml(e.event_type)}</td>
+            <td style="text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 600;">${weightStr}</td>
+            <td style="font-size: 0.78rem; color: var(--text-muted);">${envStr}</td>
+            <td style="color: var(--text-muted); font-size: 0.78rem;">${escapeHtml(e.note || '')}</td>
+          </tr>
+        `;
+      }).join('');
     }
 
     function updateDevices(devices) {
@@ -473,7 +798,7 @@
               <span class="badge badge-${d.device_type || 'sensor'}">${escapeHtml(d.device_type)}</span>
             </div>
             <div class="device-meta">
-              <span>最終値: <strong>${valueStr}</strong> (${escapeHtml(d.last_event_type)})</span>
+              <span>最終値: <strong>${valueStr}</strong></span>
               <span>${lastSeen}</span>
             </div>
           </div>
@@ -481,96 +806,18 @@
       }).join('');
     }
 
-    function updateEvents(events) {
-      const tbody = document.getElementById('events-tbody');
-      if (events.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">データを受信していません。</td></tr>`;
-        return;
-      }
-
-      tbody.innerHTML = events.map(ev => {
-        const timeStr = new Date(ev.timestamp).toLocaleTimeString();
-        let valueDisplay = '';
-        if (ev.temperature_c !== undefined && ev.temperature_c !== null) {
-          valueDisplay = `${ev.temperature_c.toFixed(1)}°C / ${ev.humidity_pct ? ev.humidity_pct.toFixed(1) + '%' : ''}`;
-        } else if (ev.weight_g !== undefined && ev.weight_g !== null) {
-          let deltaHtml = '';
-          if (ev.delta_g !== undefined && ev.delta_g !== null) {
-            const sign = ev.delta_g > 0 ? '+' : '';
-            const color = ev.delta_g < 0 ? 'var(--accent-orange)' : 'var(--accent-green)';
-            deltaHtml = `<span style="color: ${color}; font-size: 0.75rem; margin-left: 4px;">(${sign}${ev.delta_g.toFixed(1)}g)</span>`;
-          }
-          valueDisplay = `${ev.weight_g.toFixed(1)}g ${deltaHtml}`;
-        }
-
-        return `
-          <tr>
-            <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted);">${timeStr}</td>
-            <td style="font-weight: 500;">${escapeHtml(ev.device_id)}</td>
-            <td><span class="badge badge-${ev.device_type || 'sensor'}">${escapeHtml(ev.device_type)}</span></td>
-            <td>${escapeHtml(ev.event_type)}</td>
-            <td style="text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 600;">
-              ${valueDisplay}
-            </td>
-            <td style="color: var(--text-muted); font-size: 0.78rem;">${escapeHtml(ev.note || '-')}</td>
-          </tr>
-        `;
-      }).join('');
-    }
-
     function escapeHtml(str) {
       if (!str) return '';
-      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
     }
 
-    async function sendTestSignal() {
-      const sampleEvents = [
-        {
-          device_id: "raspi-cat-scale",
-          device_type: "scale",
-          event_type: "weight_measured",
-          weight_g: 4250.5,
-          note: "猫が体重計に乗って測定",
-          timestamp: new Date().toISOString()
-        },
-        {
-          device_id: "raspi-cat-feeder",
-          device_type: "feeder",
-          event_type: "meal_finished",
-          weight_g: 35.2,
-          delta_g: -14.8,
-          temperature_c: 24.5,
-          humidity_pct: 53.0,
-          note: "食事完了 (14.8g 喫食)",
-          timestamp: new Date().toISOString()
-        },
-        {
-          device_id: "raspi-env-01",
-          device_type: "env_sensor",
-          event_type: "env_measured",
-          temperature_c: 24.8,
-          humidity_pct: 52.5,
-          pressure_hpa: 1012.8,
-          note: "M5Stack ENV IV (Grove I2C)",
-          timestamp: new Date().toISOString()
-        }
-      ];
-
-      const chosen = sampleEvents[Math.floor(Math.random() * sampleEvents.length)];
-      try {
-        const res = await fetch('/api/v1/events', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(chosen)
-        });
-        if (res.ok) {
-          fetchData();
-        }
-      } catch (err) {
-        alert('送信失敗: ' + err);
-      }
-    }
-
+    // Initialize Chart and Start Live Polling
+    initChart();
     fetchData();
     setInterval(fetchData, 5000);
   </script>
