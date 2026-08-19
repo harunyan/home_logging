@@ -1,0 +1,17 @@
+[Unit]
+Description=Cat Weight & Feeder Logging Sensor Service
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/home_logging/sensor_raspi
+ExecStart=/usr/bin/python3 /home/pi/home_logging/sensor_raspi/measure_service.py
+Restart=always
+RestartSec=5s
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+{
+  "server_url": "http://192.168.1.100:8080",
+  "device_id": "raspi-cat-scale-01",
+  "device_type": "scale",
+  "mode": "scale",
+  "pin_dout": 5,
+  "pin_pd_sck": 6,
+  "gain": 128,
+  "reference_unit": 420.0,
+  "offset": 8400000.0,
+  "scale_threshold_g": 500.0,
+  "feeder_change_threshold_g": 3.0,
+  "sample_interval_sec": 0.5,
+  "enable_env_iv": true,
+  "i2c_bus": 1,
+  "env_interval_sec": 180,
+  "offline_queue_file": "offline_queue.json",
+  "mock_mode": false
+}

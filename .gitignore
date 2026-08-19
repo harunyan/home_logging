@@ -1,0 +1,61 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Go Binaries and build artifacts
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+server_go/home_logging_server
+server_go/home_logging_server.exe
+
+# Application Runtime Data & Logs
+server_go/data/
+*.jsonl
+sensor_raspi/offline_queue.json
+
+# Local Device Configuration (Use config.json.example as template)
+sensor_raspi/config.json
+
+# IDEs and Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db

@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🐾 Cat Home Logging Monitor | WinSV</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0d1117;
+      --bg-secondary: #161b22;
+      --bg-card: rgba(22, 27, 34, 0.85);
+      --border-color: rgba(240, 246, 252, 0.1);
+      --accent-orange: #f0883e;
+      --accent-cyan: #38bdf8;
+      --accent-green: #3fb950;
+      --accent-purple: #a371f7;
+      --text-main: #f0f6fc;
+      --text-muted: #8b949e;
+      --card-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Outfit', 'Noto Sans JP', sans-serif;
+      background: radial-gradient(circle at 10% 20%, #1a1e29 0%, #0d1117 90%);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 24px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 28px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      font-size: 2rem;
+      background: linear-gradient(135deg, #f0883e, #ec4899);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    h1 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .server-tag {
+      font-size: 0.75rem;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent-cyan);
+      padding: 4px 10px;
+      border-radius: 9999px;
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .btn {
+      background: var(--bg-secondary);
+      color: var(--text-main);
+      border: 1px solid var(--border-color);
+      padding: 8px 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 0.85rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .btn:hover {
+      background: rgba(240, 246, 252, 0.1);
+      border-color: rgba(240, 246, 252, 0.3);
+    }
+
+    .btn-primary {
+      background: linear-gradient(135deg, #f0883e, #ea580c);
+      color: #fff;
+      border: none;
+    }
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    /* Summary Grid */
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 18px;
+      margin-bottom: 28px;
+    }
+
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      padding: 20px;
+      box-shadow: var(--card-shadow);
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(240, 246, 252, 0.25);
+    }
+
+    .card-title {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card-value {
+      font-size: 2rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      margin-bottom: 4px;
+    }
+
+    .card-subtext {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .val-orange { color: var(--accent-orange); }
+    .val-cyan { color: var(--accent-cyan); }
+    .val-green { color: var(--accent-green); }
+    .val-purple { color: var(--accent-purple); }
+
+    /* Layout Sections */
+    .main-content {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 24px;
+    }
+
+    @media (max-width: 900px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .section-title {
+      font-size: 1.1rem;
+      font-weight: 600;
+      margin-bottom: 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Tables */
+    .table-container {
+      background: var(--bg-card);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--border-color);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+      font-size: 0.85rem;
+    }
+
+    th {
+      background: rgba(255, 255, 255, 0.03);
+      padding: 12px 16px;
+      color: var(--text-muted);
+      font-weight: 600;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid rgba(240, 246, 252, 0.05);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .badge-scale { background: rgba(56, 189, 248, 0.15); color: var(--accent-cyan); border: 1px solid rgba(56, 189, 248, 0.3); }
+    .badge-feeder { background: rgba(240, 136, 62, 0.15); color: var(--accent-orange); border: 1px solid rgba(240, 136, 62, 0.3); }
+    .badge-sensor { background: rgba(163, 113, 247, 0.15); color: var(--accent-purple); border: 1px solid rgba(163, 113, 247, 0.3); }
+
+    .status-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-right: 6px;
+    }
+    .status-online { background-color: var(--accent-green); box-shadow: 0 0 8px var(--accent-green); }
+    .status-offline { background-color: #6e7681; }
+
+    /* Device List Side */
+    .device-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .device-item {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 14px;
+    }
+
+    .device-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .device-id {
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.9rem;
+    }
+
+    .device-meta {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="brand">
+        <span class="brand-icon">🐾</span>
+        <div>
+          <h1>Cat Home Logging Monitor</h1>
+          <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+            <span class="server-tag">WinSV Go Receiver</span>
+            <span id="refresh-status" style="font-size: 0.75rem; color: var(--text-muted);">● 自動更新中 (5s)</span>
+          </div>
+        </div>
+      </div>
+      <div class="header-actions">
+        <button class="btn" onclick="fetchData()">🔄 手動更新</button>
+        <button class="btn btn-primary" onclick="sendTestSignal()">⚡ テスト信号送信</button>
+      </div>
+    </header>
+
+    <!-- Summary Statistics -->
+    <div class="summary-grid">
+      <div class="card">
+        <div class="card-title"><span>猫の最新測定体重</span> <span>⚖️</span></div>
+        <div class="card-value val-cyan" id="sum-cat-weight">-- <span style="font-size: 1rem; font-weight: normal;">g</span></div>
+        <div class="card-subtext" id="sum-cat-time">未測定</div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>本日の食事回数</span> <span>🍽️</span></div>
+        <div class="card-value val-orange" id="sum-meals-count">0 <span style="font-size: 1rem; font-weight: normal;">回</span></div>
+        <div class="card-subtext" id="sum-food-eaten">食べた量: 0.0g</div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>室内環境 (ENV IV)</span> <span>🌡️</span></div>
+        <div class="card-value val-green" id="sum-env-temp">--.- <span style="font-size: 1rem; font-weight: normal;">°C</span></div>
+        <div class="card-subtext" id="sum-env-sub">湿度: --% / 気圧: -- hPa</div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>本日の総受信イベント</span> <span>📡</span></div>
+        <div class="card-value val-purple" id="sum-events-count">0</div>
+        <div class="card-subtext">受信ログレコード数</div>
+      </div>
+      <div class="card">
+        <div class="card-title"><span>登録デバイス数</span> <span>📶</span></div>
+        <div class="card-value val-cyan" id="sum-devices-count">0 <span style="font-size: 1rem; font-weight: normal;">台</span></div>
+        <div class="card-subtext">Raspberry Pi クライアント</div>
+      </div>
+    </div>
+
+    <!-- Main Content Area -->
+    <div class="main-content">
+      <!-- Events History -->
+      <div>
+        <div class="section-title">
+          <span>📋</span>
+          <span>受信ログ履歴 (最新50件)</span>
+        </div>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>発生時刻</th>
+                <th>デバイス</th>
+                <th>種別</th>
+                <th>イベント</th>
+                <th style="text-align: right;">重量 / 差分</th>
+                <th>メモ</th>
+              </tr>
+            </thead>
+            <tbody id="events-tbody">
+              <tr>
+                <td colspan="6" class="empty-state">データを受信していません。Raspberry Pi またはテスト信号を送信してください。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Devices Sidebar -->
+      <div>
+        <div class="section-title">
+          <span>📱</span>
+          <span>デバイス稼働状態</span>
+        </div>
+        <div class="device-list" id="devices-list">
+          <div class="empty-state" style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color);">
+            デバイス未登録
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    async function fetchData() {
+      try {
+        const [sumRes, devRes, evRes] = await Promise.all([
+          fetch('/api/v1/summary').then(r => r.json()),
+          fetch('/api/v1/devices').then(r => r.json()),
+          fetch('/api/v1/events?limit=50').then(r => r.json())
+        ]);
+
+        updateSummary(sumRes);
+        updateDevices(devRes.devices || []);
+        updateEvents(evRes.events || []);
+      } catch (err) {
+        console.error('Fetch error:', err);
+        document.getElementById('refresh-status').textContent = '⚠️ 接続エラー';
+      }
+    }
+
+    function updateSummary(s) {
+      if (!s) return;
+      if (s.latest_cat_weight_g > 0) {
+        document.getElementById('sum-cat-weight').innerHTML = `${s.latest_cat_weight_g.toFixed(1)} <span style="font-size: 1rem; font-weight: normal;">g</span> (${(s.latest_cat_weight_g / 1000).toFixed(2)} kg)`;
+        const dt = new Date(s.latest_weight_time);
+        document.getElementById('sum-cat-time').textContent = `測定: ${dt.toLocaleTimeString()}`;
+      }
+      document.getElementById('sum-meals-count').innerHTML = `${s.today_meals_count} <span style="font-size: 1rem; font-weight: normal;">回</span>`;
+      document.getElementById('sum-food-eaten').textContent = `食べた量: ${s.today_food_eaten_g.toFixed(1)}g`;
+
+      if (s.latest_temp_c !== undefined && s.latest_temp_c !== null) {
+        document.getElementById('sum-env-temp').innerHTML = `${s.latest_temp_c.toFixed(1)} <span style="font-size: 1rem; font-weight: normal;">°C</span>`;
+        const humStr = s.latest_humidity_pct !== undefined && s.latest_humidity_pct !== null ? `${s.latest_humidity_pct.toFixed(1)}%` : '--%';
+        const pressStr = s.latest_pressure_hpa !== undefined && s.latest_pressure_hpa !== null ? `${s.latest_pressure_hpa.toFixed(0)} hPa` : '-- hPa';
+        document.getElementById('sum-env-sub').textContent = `湿度: ${humStr} / 気圧: ${pressStr}`;
+      }
+
+      document.getElementById('sum-events-count').textContent = s.total_events_today;
+      document.getElementById('sum-devices-count').innerHTML = `${s.active_devices_count} <span style="font-size: 1rem; font-weight: normal;">台</span>`;
+    }
+
+    function updateDevices(devices) {
+      const container = document.getElementById('devices-list');
+      if (devices.length === 0) {
+        container.innerHTML = `<div class="empty-state" style="background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-color);">デバイス未登録</div>`;
+        return;
+      }
+
+      container.innerHTML = devices.map(d => {
+        const isOnline = d.is_online;
+        const lastSeen = new Date(d.last_seen).toLocaleTimeString();
+        let valueStr = `${d.last_weight_g.toFixed(1)}g`;
+        if (d.last_temp_c !== undefined && d.last_temp_c !== null) {
+          valueStr = `${d.last_temp_c.toFixed(1)}°C / ${d.last_humidity ? d.last_humidity.toFixed(1) + '%' : ''}`;
+        }
+        return `
+          <div class="device-item">
+            <div class="device-header">
+              <div class="device-id">
+                <span class="status-dot ${isOnline ? 'status-online' : 'status-offline'}"></span>
+                ${escapeHtml(d.device_id)}
+              </div>
+              <span class="badge badge-${d.device_type || 'sensor'}">${escapeHtml(d.device_type)}</span>
+            </div>
+            <div class="device-meta">
+              <span>最終値: <strong>${valueStr}</strong> (${escapeHtml(d.last_event_type)})</span>
+              <span>${lastSeen}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function updateEvents(events) {
+      const tbody = document.getElementById('events-tbody');
+      if (events.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="6" class="empty-state">データを受信していません。</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = events.map(ev => {
+        const timeStr = new Date(ev.timestamp).toLocaleTimeString();
+        let valueDisplay = '';
+        if (ev.temperature_c !== undefined && ev.temperature_c !== null) {
+          valueDisplay = `${ev.temperature_c.toFixed(1)}°C / ${ev.humidity_pct ? ev.humidity_pct.toFixed(1) + '%' : ''}`;
+        } else if (ev.weight_g !== undefined && ev.weight_g !== null) {
+          let deltaHtml = '';
+          if (ev.delta_g !== undefined && ev.delta_g !== null) {
+            const sign = ev.delta_g > 0 ? '+' : '';
+            const color = ev.delta_g < 0 ? 'var(--accent-orange)' : 'var(--accent-green)';
+            deltaHtml = `<span style="color: ${color}; font-size: 0.75rem; margin-left: 4px;">(${sign}${ev.delta_g.toFixed(1)}g)</span>`;
+          }
+          valueDisplay = `${ev.weight_g.toFixed(1)}g ${deltaHtml}`;
+        }
+
+        return `
+          <tr>
+            <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; color: var(--text-muted);">${timeStr}</td>
+            <td style="font-weight: 500;">${escapeHtml(ev.device_id)}</td>
+            <td><span class="badge badge-${ev.device_type || 'sensor'}">${escapeHtml(ev.device_type)}</span></td>
+            <td>${escapeHtml(ev.event_type)}</td>
+            <td style="text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 600;">
+              ${valueDisplay}
+            </td>
+            <td style="color: var(--text-muted); font-size: 0.78rem;">${escapeHtml(ev.note || '-')}</td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    async function sendTestSignal() {
+      const sampleEvents = [
+        {
+          device_id: "raspi-cat-scale",
+          device_type: "scale",
+          event_type: "weight_measured",
+          weight_g: 4250.5,
+          note: "猫が体重計に乗って測定",
+          timestamp: new Date().toISOString()
+        },
+        {
+          device_id: "raspi-cat-feeder",
+          device_type: "feeder",
+          event_type: "meal_finished",
+          weight_g: 35.2,
+          delta_g: -14.8,
+          temperature_c: 24.5,
+          humidity_pct: 53.0,
+          note: "食事完了 (14.8g 喫食)",
+          timestamp: new Date().toISOString()
+        },
+        {
+          device_id: "raspi-env-01",
+          device_type: "env_sensor",
+          event_type: "env_measured",
+          temperature_c: 24.8,
+          humidity_pct: 52.5,
+          pressure_hpa: 1012.8,
+          note: "M5Stack ENV IV (Grove I2C)",
+          timestamp: new Date().toISOString()
+        }
+      ];
+
+      const chosen = sampleEvents[Math.floor(Math.random() * sampleEvents.length)];
+      try {
+        const res = await fetch('/api/v1/events', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(chosen)
+        });
+        if (res.ok) {
+          fetchData();
+        }
+      } catch (err) {
+        alert('送信失敗: ' + err);
+      }
+    }
+
+    fetchData();
+    setInterval(fetchData, 5000);
+  </script>
+</body>
+</html>

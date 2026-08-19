@@ -1,0 +1,49 @@
+package models
+
+import "time"
+
+// LogEvent represents a measurement or event sent from Raspberry Pi devices.
+type LogEvent struct {
+	ID           string    `json:"id"`                      // Unique identifier (auto-generated if empty)
+	DeviceID     string    `json:"device_id"`               // e.g., "cat-scale-01", "feeder-bowl-01", "raspi-env-01"
+	DeviceType   string    `json:"device_type"`             // "scale", "feeder", "env_sensor", "sensor"
+	EventType    string    `json:"event_type"`              // "weight_measured", "meal_finished", "refill", "env_measured", "periodic_ping"
+	WeightG      float64   `json:"weight_g,omitempty"`      // Measured weight in grams
+	DeltaG       *float64  `json:"delta_g,omitempty"`       // Difference (e.g. food eaten amount: -15.5g)
+	TemperatureC *float64  `json:"temperature_c,omitempty"` // Room temperature in °C (M5Stack ENV IV SHT40)
+	HumidityPct  *float64  `json:"humidity_pct,omitempty"`  // Relative humidity in % (M5Stack ENV IV SHT40)
+	PressureHpa  *float64  `json:"pressure_hpa,omitempty"`  // Air pressure in hPa (M5Stack ENV IV BMP280)
+	RawValue     *int64    `json:"raw_value,omitempty"`     // Raw ADC reading from HX711 (optional for debug)
+	BatteryLevel *float64  `json:"battery_level,omitempty"` // Battery % (optional)
+	Note         string    `json:"note,omitempty"`          // Optional note or tags (e.g., "Cat: Tama")
+	Timestamp    time.Time `json:"timestamp"`               // Event occurrence time on device
+	ReceivedAt   time.Time `json:"received_at"`             // Time received by WinSV server
+}
+
+// DeviceStatus tracks the latest known status of a device.
+type DeviceStatus struct {
+	DeviceID      string    `json:"device_id"`
+	DeviceType    string    `json:"device_type"`
+	LastSeen      time.Time `json:"last_seen"`
+	LastWeightG   float64   `json:"last_weight_g"`
+	LastTempC     *float64  `json:"last_temp_c,omitempty"`
+	LastHumidity  *float64  `json:"last_humidity,omitempty"`
+	LastEventType string    `json:"last_event_type"`
+	TotalEvents   int64     `json:"total_events"`
+	IsOnline      bool      `json:"is_online"` // true if seen within last 10 minutes
+}
+
+// SummaryStats provides aggregate insights (e.g., today's feeding, weight, and environment).
+type SummaryStats struct {
+	TotalEventsToday   int       `json:"total_events_today"`
+	TodayMealsCount    int       `json:"today_meals_count"`
+	TodayFoodEatenG    float64   `json:"today_food_eaten_g"`
+	LatestCatWeightG   float64   `json:"latest_cat_weight_g"`
+	LatestWeightTime   time.Time `json:"latest_weight_time"`
+	LatestTempC        *float64  `json:"latest_temp_c,omitempty"`
+	LatestHumidityPct  *float64  `json:"latest_humidity_pct,omitempty"`
+	LatestPressureHpa  *float64  `json:"latest_pressure_hpa,omitempty"`
+	LatestEnvTime      time.Time `json:"latest_env_time,omitempty"`
+	ActiveDevicesCount int       `json:"active_devices_count"`
+}
+

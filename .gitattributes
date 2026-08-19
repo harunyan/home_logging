@@ -1,0 +1,20 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
+# Source code (Normalize to LF)
+*.go text eol=lf
+*.py text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+.gitignore text eol=lf
+
+# Windows Batch scripts (Keep CRLF)
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Linux Shell scripts & Service units (Keep LF)
+*.sh text eol=lf
+*.service text eol=lf
