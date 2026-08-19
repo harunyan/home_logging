@@ -29,29 +29,56 @@ class SHT40Reader:
         self.bus = bus
 
     def read(self) -> Optional[Dict[str, float]]:
-        if not self.bus:
-            return None
+        # 1. smbus2 i2c_rdwr による直接通信
+        if self.bus and HAS_SMBUS:
+            try:
+                # 測定開始コマンド (0xFD) 送信
+                if hasattr(smbus2, "i2c_msg"):
+                    write_msg = smbus2.i2c_msg.write(self.I2C_ADDR, [self.CMD_MEASURE_HIGH_PRECISION])
+                    self.bus.i2c_rdwr(write_msg)
+                else:
+                    self.bus.write_byte(self.I2C_ADDR, self.CMD_MEASURE_HIGH_PRECISION)
+
+                time.sleep(0.02)  # 測定完了待機 (20ms)
+
+                # 6バイト (Temp MSB, Temp LSB, CRC, Hum MSB, Hum LSB, CRC) を読み出し
+                if hasattr(smbus2, "i2c_msg"):
+                    read_msg = smbus2.i2c_msg.read(self.I2C_ADDR, 6)
+                    self.bus.i2c_rdwr(read_msg)
+                    data = list(read_msg)
+                else:
+                    data = self.bus.read_i2c_block_data(self.I2C_ADDR, 0, 6)
+
+                raw_temp = (data[0] << 8) | data[1]
+                raw_hum = (data[3] << 8) | data[4]
+
+                temp_c = -45.0 + 175.0 * (raw_temp / 65535.0)
+                hum_pct = -6.0 + 125.0 * (raw_hum / 65535.0)
+                hum_pct = max(0.0, min(100.0, hum_pct))
+
+                return {
+                    "temperature_c": round(temp_c, 2),
+                    "humidity_pct": round(hum_pct, 2)
+                }
+            except Exception:
+                pass
+
+        # 2. adafruit_sht4x がインストールされている場合のフォールバック
         try:
-            # Send high precision measurement command
-            self.bus.write_byte(self.I2C_ADDR, self.CMD_MEASURE_HIGH_PRECISION)
-            time.sleep(0.015)  # 15ms measurement time
-
-            # Read 6 bytes: [Temp MSB, Temp LSB, CRC, Hum MSB, Hum LSB, CRC]
-            data = self.bus.read_i2c_block_data(self.I2C_ADDR, 0, 6)
-            raw_temp = (data[0] << 8) | data[1]
-            raw_hum = (data[3] << 8) | data[4]
-
-            # Conversion formulas according to SHT40 datasheet
-            temp_c = -45.0 + 175.0 * (raw_temp / 65535.0)
-            hum_pct = -6.0 + 125.0 * (raw_hum / 65535.0)
-            hum_pct = max(0.0, min(100.0, hum_pct))
-
+            import board
+            import adafruit_sht4x
+            i2c = board.I2C()
+            sht = adafruit_sht4x.SHT4x(i2c)
+            sht.mode = adafruit_sht4x.Mode.NOHEAT_HIGHPRECISION
+            t, h = sht.measurements
             return {
-                "temperature_c": round(temp_c, 2),
-                "humidity_pct": round(hum_pct, 2)
+                "temperature_c": round(float(t), 2),
+                "humidity_pct": round(float(h), 2)
             }
         except Exception:
-            return None
+            pass
+
+        return None
 
 
 class BMP280Reader:
