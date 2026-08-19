@@ -6,6 +6,7 @@ Supports hardware RPi.GPIO and software mock mode for cross-platform simulation.
 import time
 import statistics
 import random
+from typing import Optional
 
 try:
     import RPi.GPIO as GPIO
