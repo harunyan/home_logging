@@ -258,18 +258,50 @@ func (s *Storage) GetSummary() models.SummaryStats {
 					summary.LatestWeightTime = ev.Timestamp
 				}
 			}
-		}
 
-		// Track latest environment reading
-		if ev.TemperatureC != nil || ev.HumidityPct != nil {
-			if ev.Timestamp.After(summary.LatestEnvTime) {
-				summary.LatestTempC = ev.TemperatureC
-				summary.LatestHumidityPct = ev.HumidityPct
-				summary.LatestPressureHpa = ev.PressureHpa
-				summary.LatestEnvTime = ev.Timestamp
+			// Track latest environment reading
+			if ev.TemperatureC != nil || ev.HumidityPct != nil {
+				if ev.Timestamp.After(summary.LatestEnvTime) {
+					summary.LatestTempC = ev.TemperatureC
+					summary.LatestHumidityPct = ev.HumidityPct
+					summary.LatestPressureHpa = ev.PressureHpa
+					summary.LatestEnvTime = ev.Timestamp
+				}
 			}
 		}
 	}
+
+	// 2. If no explicit meal_finished events recorded yet, analyze continuous food_level drops
+	if summary.TodayMealsCount == 0 {
+		var prevWeight float64 = -1
+		var prevTime time.Time
+
+		for _, ev := range s.memoryCache {
+			if ev.Timestamp.After(todayStart) && (ev.DeviceType == "feeder" || ev.EventType == "food_level") && ev.WeightG > 0 && ev.WeightG <= 1000 {
+				if prevWeight >= 0 {
+					delta := ev.WeightG - prevWeight
+					if delta <= -1.8 && delta >= -35.0 {
+						if prevTime.IsZero() || ev.Timestamp.Sub(prevTime) > 3*time.Minute {
+							summary.TodayMealsCount++
+						}
+						summary.TodayFoodEatenG += -delta
+						prevTime = ev.Timestamp
+						prevWeight = ev.WeightG
+					} else if delta >= 15.0 {
+						// Refill
+						prevWeight = ev.WeightG
+					} else if delta > -0.8 && delta < 0.8 {
+						// Small drift
+						prevWeight = ev.WeightG
+					}
+				} else {
+					prevWeight = ev.WeightG
+				}
+			}
+		}
+	}
+
+	summary.TodayFoodEatenG = float64(int(summary.TodayFoodEatenG*10+0.5)) / 10
 
 	return summary
 }

@@ -962,10 +962,31 @@
       tbody.innerHTML = events.map(e => {
         const dt = new Date(e.timestamp);
         const timeStr = `${dt.toLocaleDateString()} ${dt.toLocaleTimeString()}`;
+        
+        let eventLabel = escapeHtml(e.event_type);
+        let eventBadgeClass = 'badge-sensor';
+        if (e.event_type === 'meal_finished') {
+          eventLabel = '🥣 食事完了';
+          eventBadgeClass = 'badge-feeder';
+        } else if (e.event_type === 'refill') {
+          eventLabel = '✨ フード補充';
+          eventBadgeClass = 'badge-scale';
+        } else if (e.event_type === 'food_level') {
+          eventLabel = '🍽️ 定期残量';
+          eventBadgeClass = 'badge-sensor';
+        } else if (e.event_type === 'weight_measured') {
+          eventLabel = '⚖️ 体重測定';
+          eventBadgeClass = 'badge-scale';
+        }
+
         let weightStr = `${e.weight_g !== null && e.weight_g !== undefined ? Number(e.weight_g).toFixed(1) + 'g' : '-'}`;
         if (e.delta_g !== null && e.delta_g !== undefined) {
-          const sign = e.delta_g > 0 ? '+' : '';
-          weightStr += ` (${sign}${Number(e.delta_g).toFixed(1)}g)`;
+          const deltaVal = Number(e.delta_g);
+          if (deltaVal < 0) {
+            weightStr += ` <span style="color: var(--accent-orange); font-weight: 700;">(${deltaVal.toFixed(1)}g)</span>`;
+          } else if (deltaVal > 0) {
+            weightStr += ` <span style="color: var(--accent-emerald); font-weight: 700;">(+${deltaVal.toFixed(1)}g)</span>`;
+          }
         }
 
         let envStr = '-';
@@ -978,7 +999,7 @@
             <td style="font-family: 'JetBrains Mono', monospace; font-size: 0.78rem;">${timeStr}</td>
             <td><strong>${escapeHtml(e.device_id)}</strong></td>
             <td><span class="badge badge-${e.device_type || 'sensor'}">${escapeHtml(e.device_type)}</span></td>
-            <td>${escapeHtml(e.event_type)}</td>
+            <td><span class="badge ${eventBadgeClass}">${eventLabel}</span></td>
             <td style="text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 600;">${weightStr}</td>
             <td style="font-size: 0.78rem; color: var(--text-muted);">${envStr}</td>
             <td style="color: var(--text-muted); font-size: 0.78rem;">${escapeHtml(e.note || '')}</td>

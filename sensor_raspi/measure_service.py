@@ -192,7 +192,7 @@ class FeederMonitor:
     Logic for Food Bowl (1kg Load Cell: 0-1000g).
     Monitors bowl weight changes with session debounce.
     Treats continuous fluctuations during eating as a single meal session,
-    calculating the total eaten amount only between session start and end.
+    calculating the total eaten amount between session start and end.
     """
 
     def __init__(self, hx: HX711, sender: WinSVSender, config: Dict[str, Any], env_sensor: Optional[EnvIVSensor] = None):
@@ -200,11 +200,11 @@ class FeederMonitor:
         self.sender = sender
         self.config = config
         self.env_sensor = env_sensor
-        self.change_threshold = config.get("feeder_change_threshold_g", 3.0)
+        self.change_threshold = config.get("feeder_change_threshold_g", 2.0)  # 2.0g以上の減少で食事検知
         self.device_id = config.get("device_id", "raspi4-feeder-01")
         self.device_type = "feeder"
         self.loadcell_max_g = config.get("loadcell_max_g", 1000.0)
-        self.settle_duration_sec = config.get("feeder_settle_sec", 20.0)  # 20秒間変動が収まったらセッション終了
+        self.settle_duration_sec = config.get("feeder_settle_sec", 12.0)      # 12秒間変動が収まったらセッション終了
 
     def run_loop(self):
         print(f"🍽️ Food Bowl Monitor active. Change threshold: {self.change_threshold}g (Settle time: {self.settle_duration_sec}s)")
@@ -217,6 +217,7 @@ class FeederMonitor:
         ping_interval = self.config.get("ping_interval_sec", 60)  # 1分間隔の定期同期
         last_env_time = time.time()
         env_interval = self.config.get("env_interval_sec", 60)    # 1分間隔の環境測定
+        last_drift_time = time.time()
 
         # 食事/補充セッション管理
         in_session = False
@@ -246,15 +247,21 @@ class FeederMonitor:
                         last_fluctuation_time = now
                         last_observed_weight = normalized_current
                         print(f"🐾 [食事/補充セッション開始] 開始前残量: {session_start_weight:.1f}g (現在値: {normalized_current:.1f}g)")
+                    else:
+                        # セッション外で微小な温度ドリフトがあればゆっくり追従 (5分ごと)
+                        if now - last_drift_time >= 300:
+                            if abs(delta_from_baseline) < 1.0:
+                                baseline = normalized_current
+                            last_drift_time = now
 
                 else:
                     # 3. セッション継続中 (猫が食事中または作業中)
                     # 重量に有意な動きがあれば変動時刻を更新
-                    if abs(normalized_current - last_observed_weight) >= 1.5:
+                    if abs(normalized_current - last_observed_weight) >= 1.0:
                         last_fluctuation_time = now
                         last_observed_weight = normalized_current
 
-                    # 変動が収まってから settle_duration_sec (20秒) 経過したか？
+                    # 変動が収まってから settle_duration_sec (12秒) 経過したか？
                     stable_elapsed = now - last_fluctuation_time
                     if stable_elapsed >= self.settle_duration_sec:
                         # 完全に安定した！高精度サンプリングで最終重量を確定
@@ -273,14 +280,14 @@ class FeederMonitor:
                                 "event_type": "meal_finished",
                                 "weight_g": round(final_weight, 2),
                                 "delta_g": round(total_delta, 2),
-                                "note": f"喫食量: {eaten_amount:.1f}g",
+                                "note": f"猫の食事検知 (喫食量: {eaten_amount:.1f}g)",
                                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
                             }
                             if self.env_sensor:
                                 payload.update(self.env_sensor.read_all())
                             self.sender.send_event(payload)
 
-                        elif total_delta >= self.change_threshold:
+                        elif total_delta >= 15.0:
                             # フード補充が完了！ (1回だけ送信)
                             refill_amount = total_delta
                             print(f"🥣 【フード補充】 補充量: +{refill_amount:.1f}g (合計: {final_weight:.1f}g)")
@@ -290,7 +297,7 @@ class FeederMonitor:
                                 "event_type": "refill",
                                 "weight_g": round(final_weight, 2),
                                 "delta_g": round(total_delta, 2),
-                                "note": f"補充量: +{refill_amount:.1f}g",
+                                "note": f"フード補充 (補充量: +{refill_amount:.1f}g)",
                                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
                             }
                             if self.env_sensor:
@@ -304,15 +311,17 @@ class FeederMonitor:
                         baseline = final_weight
                         in_session = False
                         last_ping_time = now
+                        last_drift_time = now
 
-                # 4. 定期残量同期 (セッション中でない定常時のみ送信)
-                if not in_session and (now - last_ping_time >= ping_interval):
+                # 4. 定期残量同期 (常時1分間隔で送信)
+                if now - last_ping_time >= ping_interval:
+                    status_note = "食事中同期" if in_session else "1分定期残量同期"
                     payload = {
                         "device_id": self.device_id,
                         "device_type": self.device_type,
                         "event_type": "food_level",
                         "weight_g": round(normalized_current, 2),
-                        "note": "1分定期残量同期",
+                        "note": status_note,
                         "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat()
                     }
                     if self.env_sensor:

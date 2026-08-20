@@ -94,7 +94,8 @@ $todaySql = "SELECT COUNT(*) as total_events,
 
 $summaryRow = $db->querySingle($todaySql, true);
 
-// Intelligent meal session debouncing (group meal events within 3 minutes into 1 meal session)
+// Intelligent meal session detection
+// 1. Check explicit meal_finished events
 $mealsSql = "SELECT timestamp, received_at, weight_g, delta_g FROM events WHERE event_type = 'meal_finished' AND (timestamp >= '{$todayStart}' OR received_at >= '{$todayStart}') ORDER BY id ASC;";
 $mealsRes = $db->query($mealsSql);
 $mealSessionCount = 0;
@@ -110,6 +111,40 @@ while ($m = $mealsRes->fetchArray(SQLITE3_ASSOC)) {
         $totalEatenG += -$m['delta_g'];
     }
     $lastMealTime = $ts;
+}
+
+// 2. If no explicit meal_finished events recorded yet, automatically analyze continuous food_level changes
+if ($mealSessionCount === 0) {
+    $timelineSql = "SELECT weight_g, timestamp, received_at FROM events WHERE (device_type = 'feeder' OR event_type = 'food_level') AND weight_g >= 0 AND weight_g <= 1000 AND (timestamp >= '{$todayStart}' OR received_at >= '{$todayStart}') ORDER BY id ASC;";
+    $tRes = $db->query($timelineSql);
+    $prevWeight = null;
+    $prevTime = 0;
+
+    while ($r = $tRes->fetchArray(SQLITE3_ASSOC)) {
+        $w = (float)$r['weight_g'];
+        $ts = strtotime($r['timestamp'] ?? $r['received_at']);
+        
+        if ($prevWeight !== null) {
+            $delta = $w - $prevWeight;
+            // A distinct drop between 1.8g and 35.0g is an eating session
+            if ($delta <= -1.8 && $delta >= -35.0) {
+                if ($prevTime === 0 || ($ts - $prevTime > 180)) {
+                    $mealSessionCount++;
+                }
+                $totalEatenG += -$delta;
+                $prevTime = $ts;
+                $prevWeight = $w;
+            } elseif ($delta >= 15.0) {
+                // Refill occurred, update baseline without counting as meal
+                $prevWeight = $w;
+            } elseif (abs($delta) < 0.8) {
+                // Small thermal drift, smoothly track baseline
+                $prevWeight = $w;
+            }
+        } else {
+            $prevWeight = $w;
+        }
+    }
 }
 
 // Latest status (safeguarded against glitches)
