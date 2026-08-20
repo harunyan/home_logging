@@ -655,7 +655,29 @@
       });
 
       if (currentTab === 'weight') {
-        const weights = filtered.map(e => e.weight_g !== undefined ? e.weight_g : null);
+        const weights = filtered.map(e => e.weight_g !== undefined && e.weight_g !== null ? e.weight_g : null);
+        const validWeights = weights.filter(w => w !== null && w >= 0 && w <= 1000);
+
+        let yMin = 200, yMax = 260;
+        if (validWeights.length > 0) {
+          const minV = Math.min(...validWeights);
+          const maxV = Math.max(...validWeights);
+          const latest = validWeights[validWeights.length - 1];
+
+          // 現在値および期間内の変化幅を包含し、現在値から約±20〜25gの最適なレンジを計算
+          const lower = Math.min(minV - 10, latest - 25);
+          const upper = Math.max(maxV + 10, latest + 25);
+
+          yMin = Math.max(0, Math.floor(lower / 5) * 5);
+          yMax = Math.ceil(upper / 5) * 5;
+
+          if (yMax - yMin < 30) {
+            const center = Math.round(latest / 5) * 5;
+            yMin = Math.max(0, center - 20);
+            yMax = yMin + 40;
+          }
+        }
+
         mainChart.data.labels = labels;
         mainChart.data.datasets = [{
           label: '餌皿残量 (g)',
@@ -673,7 +695,8 @@
           y: {
             title: { display: true, text: '重量 (g)', color: '#fb923c' },
             grid: { color: 'rgba(148, 163, 184, 0.05)' },
-            suggestedMin: 0
+            min: yMin,
+            max: yMax
           }
         };
 

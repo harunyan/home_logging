@@ -631,6 +631,27 @@
           .map(e => ({ x: new Date(e.timestamp).getTime(), y: e.weight_g }))
           .filter(pt => pt.y !== null && pt.y >= 0 && pt.y <= 1000);
 
+        let yMin = 200, yMax = 260;
+        if (weightData.length > 0) {
+          const vals = weightData.map(pt => pt.y);
+          const minV = Math.min(...vals);
+          const maxV = Math.max(...vals);
+          const latest = vals[vals.length - 1];
+
+          // 現在値および期間内の変化幅を包含し、現在値から約±20〜25gの最適なレンジを計算
+          const lower = Math.min(minV - 10, latest - 25);
+          const upper = Math.max(maxV + 10, latest + 25);
+
+          yMin = Math.max(0, Math.floor(lower / 5) * 5);
+          yMax = Math.ceil(upper / 5) * 5;
+
+          if (yMax - yMin < 30) {
+            const center = Math.round(latest / 5) * 5;
+            yMin = Math.max(0, center - 20);
+            yMax = yMin + 40;
+          }
+        }
+
         cloudChart.data = {
           datasets: [{
             label: '餌皿残量 (g)',
@@ -649,8 +670,8 @@
           y: { 
             title: { display: true, text: '重量 (g)', color: '#fb923c' }, 
             grid: { color: 'rgba(148, 163, 184, 0.05)' }, 
-            suggestedMin: 150,
-            suggestedMax: 300
+            min: yMin,
+            max: yMax
           }
         };
 
