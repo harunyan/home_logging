@@ -54,10 +54,10 @@ class HX711:
             GPIO.output(self.pd_sck_pin, True)
             time.sleep(0.0001)  # 100 microseconds (exceeds 60µs power down threshold)
             GPIO.output(self.pd_sck_pin, False)
-            time.sleep(0.0001)  # 100 microseconds wake-up time
+            time.sleep(0.001)   # 1 millisecond wake-up time
 
-    def read_raw(self, timeout_sec: float = 1.0) -> Optional[int]:
-        """Reads a single 24-bit raw value from HX711 with timeout handling and glitch detection."""
+    def read_raw(self, timeout_sec: float = 1.5) -> Optional[int]:
+        """Reads a single 24-bit raw value from HX711. Fast bit-bang without sleep delays."""
         if self.mock:
             time.sleep(0.01)
             return int(self._mock_base_adc + random.gauss(0, 150))
@@ -69,29 +69,22 @@ class HX711:
         start_wait = time.time()
         while GPIO.input(self.dout_pin) == 1:
             if time.time() - start_wait > timeout_sec:
-                # If hung, perform hardware reset to self-heal
-                self.reset()
                 return None
-            time.sleep(0.001)
+            time.sleep(0.002)
 
         raw_data = 0
         for _ in range(24):
             GPIO.output(self.pd_sck_pin, True)
-            time.sleep(0.000001)  # 1 microsecond pulse width
-            bit = GPIO.input(self.dout_pin)
+            raw_data = (raw_data << 1) | GPIO.input(self.dout_pin)
             GPIO.output(self.pd_sck_pin, False)
-            time.sleep(0.000001)
-            raw_data = (raw_data << 1) | bit
 
         # Additional pulses to set gain for next reading
         for _ in range(self._gain_pulses):
             GPIO.output(self.pd_sck_pin, True)
-            time.sleep(0.000001)
             GPIO.output(self.pd_sck_pin, False)
-            time.sleep(0.000001)
 
-        # Rejection of common bus glitch / disconnected line values
-        if raw_data in (0, 0xFFFFFF, 0x7FFFFF, 0x800000):
+        # Rejection of common disconnected / saturated values (all 1s or saturation limits)
+        if raw_data in (0xFFFFFF, 0x7FFFFF, 0x800000):
             return None
 
         # Convert 2's complement 24-bit to signed integer
@@ -104,22 +97,22 @@ class HX711:
 
         return raw_data
 
-    def read_average(self, times: int = 5, timeout_sec: float = 5.0) -> float:
+    def read_average(self, times: int = 5, timeout_sec: float = 15.0) -> float:
         """Reads multiple raw values, retries on timeout/glitch, filters outliers with median."""
         start_time = time.time()
         readings = []
         
-        target_count = max(times, 5)
+        target_count = max(times, 3)
         while len(readings) < target_count and (time.time() - start_time < timeout_sec):
-            val = self.read_raw(timeout_sec=0.5)
+            val = self.read_raw(timeout_sec=1.5)
             if val is not None:
                 readings.append(val)
-            time.sleep(0.005)
+            time.sleep(0.01)
 
         if not readings:
-            # Self-heal on timeout
+            # If completely no response, perform a single hardware reset
             self.reset()
-            raise TimeoutError("HX711 センサーからの応答がありませんでした (自動リセットを実行しました)")
+            raise TimeoutError("HX711 センサーからの応答がありませんでした (配線または電源を確認してください)")
 
         # Sort and remove extreme outliers if enough samples
         readings.sort()
