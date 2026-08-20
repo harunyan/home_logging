@@ -7,8 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-  <!-- Chart.js -->
+  <!-- Chart.js & Zoom / Pan Plugin -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
   <style>
     :root {
       /* Matching veris.jp Slate Theme */
@@ -199,7 +201,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       flex-wrap: wrap;
       gap: 12px;
     }
@@ -242,6 +244,7 @@
       padding: 4px;
       border-radius: 10px;
       border: 1px solid var(--border-slate);
+      flex-wrap: wrap;
     }
 
     .range-btn {
@@ -266,10 +269,106 @@
       font-weight: 700;
     }
 
+    /* Time Navigation Bar */
+    .time-nav-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      padding: 8px 14px;
+      background: rgba(15, 23, 42, 0.65);
+      border-radius: 10px;
+      border: 1px solid var(--border-slate);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .time-nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .nav-btn {
+      background: rgba(30, 41, 59, 0.8);
+      color: var(--text-main);
+      border: 1px solid var(--border-slate);
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .nav-btn:hover {
+      background: rgba(51, 65, 85, 0.8);
+      color: var(--accent-sky);
+      border-color: rgba(56, 189, 248, 0.3);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .nav-btn-live {
+      color: var(--accent-emerald);
+      border-color: rgba(52, 211, 153, 0.3);
+    }
+    .nav-btn-live:hover {
+      color: #ffffff;
+      background: rgba(52, 211, 153, 0.2);
+    }
+
+    .time-window-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(11, 15, 25, 0.9);
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.76rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-main);
+      border: 1px solid var(--border-slate);
+    }
+
+    .pulse-live {
+      color: var(--accent-emerald);
+      font-weight: 700;
+      font-size: 0.72rem;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pulse-past {
+      color: var(--accent-orange);
+      font-weight: 700;
+      font-size: 0.72rem;
+    }
+
+    .pan-hint {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
     .chart-container {
       position: relative;
       height: 320px;
       width: 100%;
+      cursor: grab;
+    }
+    .chart-container:active {
+      cursor: grabbing;
     }
 
     /* Layout Sections */
@@ -461,11 +560,30 @@
         </div>
         <div class="range-selector">
           <button class="range-btn" id="range-60" onclick="setGraphRange(60)">1時間</button>
+          <button class="range-btn" id="range-180" onclick="setGraphRange(180)">3時間</button>
           <button class="range-btn" id="range-360" onclick="setGraphRange(360)">6時間</button>
           <button class="range-btn active" id="range-1440" onclick="setGraphRange(1440)">24時間</button>
-          <button class="range-btn" id="range-all" onclick="setGraphRange(0)">全件</button>
+          <button class="range-btn" id="range-10080" onclick="setGraphRange(10080)">7日間</button>
+          <button class="range-btn" id="range-0" onclick="setGraphRange(0)">全件</button>
         </div>
       </div>
+
+      <!-- Time Navigation / Pan Controls -->
+      <div class="time-nav-bar">
+        <div class="time-nav-controls">
+          <button class="nav-btn" onclick="panTimeStep(-1)" title="過去へスクロール">◀ 過去へ</button>
+          <div class="time-window-badge">
+            <span id="live-indicator" class="pulse-live">● LIVE</span>
+            <span id="time-window-text">最新 24時間</span>
+          </div>
+          <button class="nav-btn" id="btn-nav-next" onclick="panTimeStep(1)" title="未来（最新方向）へスクロール" disabled>次へ ▶</button>
+          <button class="nav-btn nav-btn-live" id="btn-nav-live" onclick="resetToLive()" title="最新のリアルタイム表示に戻る">最新 ⏩</button>
+        </div>
+        <div class="pan-hint">
+          <span>👆 グラフを直接左右にドラッグ／スワイプしてスクロールできます</span>
+        </div>
+      </div>
+
       <div class="chart-container">
         <canvas id="mainChart"></canvas>
       </div>
@@ -520,6 +638,7 @@
     let mainChart = null;
     let currentTab = 'weight';
     let currentRangeMinutes = 1440; // Default 24 hours
+    let timeOffsetMs = 0; // 0 = Live
     let rawEventsData = [];
 
     Chart.defaults.color = '#94a3b8';
@@ -530,7 +649,7 @@
       const ctx = document.getElementById('mainChart').getContext('2d');
       mainChart = new Chart(ctx, {
         type: 'line',
-        data: { labels: [], datasets: [] },
+        data: { datasets: [] },
         options: {
           responsive: true,
           maintainAspectRatio: false,
@@ -544,13 +663,29 @@
               borderColor: 'rgba(56, 189, 248, 0.25)',
               borderWidth: 1,
               padding: 10,
-              displayColors: true
+              callbacks: {
+                title: function(items) {
+                  if (!items.length) return '';
+                  const d = new Date(items[0].parsed.x);
+                  return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`;
+                }
+              }
+            },
+            zoom: {
+              pan: {
+                enabled: true,
+                mode: 'x',
+                onPan: function({ chart }) {
+                  const xScale = chart.scales.x;
+                  handlePanUpdate(xScale.min, xScale.max);
+                }
+              }
             }
           },
           scales: {
             x: {
-              grid: { color: 'rgba(148, 163, 184, 0.05)' },
-              ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10 }
+              type: 'linear',
+              grid: { color: 'rgba(148, 163, 184, 0.05)' }
             },
             y: {
               grid: { color: 'rgba(148, 163, 184, 0.05)' }
@@ -560,12 +695,134 @@
       });
     }
 
+    function handlePanUpdate(minTime, maxTime) {
+      if (currentRangeMinutes === 0) return;
+      const now = Date.now();
+      timeOffsetMs = Math.max(0, now - maxTime);
+      updateTimeNavUI(minTime, maxTime);
+      updateYScaleForVisibleRange(minTime, maxTime);
+    }
+
+    function updateTimeNavUI(minTime, maxTime) {
+      const liveIndicator = document.getElementById('live-indicator');
+      const timeWindowText = document.getElementById('time-window-text');
+      const btnNext = document.getElementById('btn-nav-next');
+
+      const isLive = timeOffsetMs <= 60000;
+
+      if (isLive) {
+        liveIndicator.className = 'pulse-live';
+        liveIndicator.textContent = '● LIVE';
+        btnNext.disabled = true;
+      } else {
+        liveIndicator.className = 'pulse-past';
+        liveIndicator.textContent = '⏱️ 過去';
+        btnNext.disabled = false;
+      }
+
+      if (minTime && maxTime) {
+        const dMin = new Date(minTime);
+        const dMax = new Date(maxTime);
+        const formatTime = (d) => `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+        timeWindowText.textContent = `${formatTime(dMin)} 〜 ${formatTime(dMax)}`;
+      }
+    }
+
+    function panTimeStep(direction) {
+      if (currentRangeMinutes === 0) return;
+      const stepMs = (currentRangeMinutes * 60 * 1000) * 0.5;
+
+      if (direction === -1) {
+        timeOffsetMs += stepMs;
+      } else {
+        timeOffsetMs = Math.max(0, timeOffsetMs - stepMs);
+      }
+
+      renderChart();
+    }
+
+    function resetToLive() {
+      timeOffsetMs = 0;
+      renderChart();
+    }
+
+    function getXAxisConfig() {
+      const now = Date.now();
+      let min = null;
+      let max = now - timeOffsetMs;
+      let isShort = currentRangeMinutes <= 1440 && currentRangeMinutes > 0;
+
+      if (currentRangeMinutes > 0) {
+        min = max - (currentRangeMinutes * 60 * 1000);
+      } else {
+        max = null;
+        isShort = false;
+      }
+
+      updateTimeNavUI(min, max);
+
+      return {
+        type: 'linear',
+        min: min,
+        max: max,
+        grid: { color: 'rgba(148, 163, 184, 0.05)' },
+        ticks: {
+          maxRotation: 0,
+          autoSkip: true,
+          maxTicksLimit: 8,
+          callback: function(val) {
+            const d = new Date(val);
+            if (isNaN(d.getTime())) return '';
+            if (isShort) {
+              return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
+            } else {
+              return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2, '0')}:00`;
+            }
+          }
+        }
+      };
+    }
+
+    function updateYScaleForVisibleRange(minTime, maxTime) {
+      if (!mainChart || !minTime || !maxTime) return;
+
+      const filtered = rawEventsData.filter(e => {
+        const t = new Date(e.timestamp).getTime();
+        return t >= minTime && t <= maxTime;
+      });
+
+      if (currentTab === 'weight') {
+        const weights = filtered.map(e => e.weight_g).filter(w => w !== null && w !== undefined && w >= 0 && w <= 1000);
+        if (weights.length > 0) {
+          const minV = Math.min(...weights);
+          const maxV = Math.max(...weights);
+          const latest = weights[0];
+
+          const lower = Math.min(minV - 10, latest - 25);
+          const upper = Math.max(maxV + 10, latest + 25);
+
+          let yMin = Math.max(0, Math.floor(lower / 5) * 5);
+          let yMax = Math.ceil(upper / 5) * 5;
+
+          if (yMax - yMin < 30) {
+            const center = Math.round(latest / 5) * 5;
+            yMin = Math.max(0, center - 20);
+            yMax = yMin + 40;
+          }
+
+          mainChart.options.scales.y.min = yMin;
+          mainChart.options.scales.y.max = yMax;
+          mainChart.update('none');
+        }
+      }
+    }
+
     async function fetchData() {
       try {
         const [sumRes, devRes, evRes] = await Promise.all([
           fetch('/api/v1/summary').then(r => r.json()),
           fetch('/api/v1/devices').then(r => r.json()),
-          fetch('/api/v1/events?limit=500').then(r => r.json())
+          fetch('/api/v1/events?limit=1500').then(r => r.json())
         ]);
 
         updateSummary(sumRes);
@@ -623,14 +880,16 @@
     function switchGraphTab(tab) {
       currentTab = tab;
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-      document.getElementById(`tab-${tab}`).classList.add('active');
+      const activeBtn = document.getElementById(`tab-${tab}`);
+      if (activeBtn) activeBtn.classList.add('active');
       renderChart();
     }
 
     function setGraphRange(minutes) {
       currentRangeMinutes = minutes;
+      timeOffsetMs = 0;
       document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
-      const id = minutes === 0 ? 'range-all' : `range-${minutes}`;
+      const id = `range-${minutes}`;
       const btn = document.getElementById(id);
       if (btn) btn.classList.add('active');
       renderChart();
@@ -639,32 +898,32 @@
     function renderChart() {
       if (!mainChart || rawEventsData.length === 0) return;
 
-      let filtered = [...rawEventsData].reverse();
-      if (currentRangeMinutes > 0) {
-        const cutoff = new Date(Date.now() - currentRangeMinutes * 60 * 1000);
-        filtered = filtered.filter(e => new Date(e.timestamp) >= cutoff);
-      }
+      const xAxisConfig = getXAxisConfig();
+      const minTime = xAxisConfig.min;
+      const maxTime = xAxisConfig.max;
 
-      if (filtered.length === 0) {
-        filtered = [...rawEventsData].reverse().slice(-10);
-      }
+      const visibleEvents = minTime && maxTime
+        ? rawEventsData.filter(e => {
+            const t = new Date(e.timestamp).getTime();
+            return t >= minTime && t <= maxTime;
+          })
+        : rawEventsData;
 
-      const labels = filtered.map(e => {
-        const d = new Date(e.timestamp);
-        return `${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
-      });
+      const filtered = [...rawEventsData].reverse();
 
       if (currentTab === 'weight') {
-        const weights = filtered.map(e => e.weight_g !== undefined && e.weight_g !== null ? e.weight_g : null);
-        const validWeights = weights.filter(w => w !== null && w >= 0 && w <= 1000);
+        const weightData = filtered
+          .map(e => ({ x: new Date(e.timestamp).getTime(), y: e.weight_g }))
+          .filter(pt => pt.y !== null && pt.y !== undefined && pt.y >= 0 && pt.y <= 1000);
+
+        const visibleWeights = visibleEvents.map(e => e.weight_g).filter(w => w !== null && w !== undefined && w >= 0 && w <= 1000);
 
         let yMin = 200, yMax = 260;
-        if (validWeights.length > 0) {
-          const minV = Math.min(...validWeights);
-          const maxV = Math.max(...validWeights);
-          const latest = validWeights[validWeights.length - 1];
+        if (visibleWeights.length > 0) {
+          const minV = Math.min(...visibleWeights);
+          const maxV = Math.max(...visibleWeights);
+          const latest = visibleWeights[0];
 
-          // 現在値および期間内の変化幅を包含し、現在値から約±20〜25gの最適なレンジを計算
           const lower = Math.min(minV - 10, latest - 25);
           const upper = Math.max(maxV + 10, latest + 25);
 
@@ -678,20 +937,21 @@
           }
         }
 
-        mainChart.data.labels = labels;
-        mainChart.data.datasets = [{
-          label: '餌皿残量 (g)',
-          data: weights,
-          borderColor: '#fb923c',
-          backgroundColor: 'rgba(251, 146, 60, 0.15)',
-          fill: true,
-          tension: 0.3,
-          pointRadius: 3,
-          pointBackgroundColor: '#fb923c',
-          borderWidth: 2
-        }];
+        mainChart.data = {
+          datasets: [{
+            label: '餌皿残量 (g)',
+            data: weightData,
+            borderColor: '#fb923c',
+            backgroundColor: 'rgba(251, 146, 60, 0.15)',
+            fill: true,
+            tension: 0.3,
+            pointRadius: 3,
+            pointBackgroundColor: '#fb923c',
+            borderWidth: 2
+          }]
+        };
         mainChart.options.scales = {
-          x: { grid: { color: 'rgba(148, 163, 184, 0.05)' } },
+          x: xAxisConfig,
           y: {
             title: { display: true, text: '重量 (g)', color: '#fb923c' },
             grid: { color: 'rgba(148, 163, 184, 0.05)' },
@@ -701,31 +961,40 @@
         };
 
       } else if (currentTab === 'env') {
-        const temps = filtered.map(e => e.temperature_c !== undefined && e.temperature_c !== null ? e.temperature_c : null);
-        const hums = filtered.map(e => e.humidity_pct !== undefined && e.humidity_pct !== null ? e.humidity_pct : null);
-        mainChart.data.labels = labels;
-        mainChart.data.datasets = [
-          {
-            label: '室温 (°C)',
-            data: temps,
-            borderColor: '#34d399',
-            backgroundColor: 'rgba(52, 211, 153, 0.1)',
-            yAxisID: 'yTemp',
-            tension: 0.3,
-            borderWidth: 2
-          },
-          {
-            label: '湿度 (%)',
-            data: hums,
-            borderColor: '#38bdf8',
-            backgroundColor: 'rgba(56, 189, 248, 0.1)',
-            yAxisID: 'yHum',
-            tension: 0.3,
-            borderWidth: 2
-          }
-        ];
+        const tempData = filtered
+          .map(e => ({ x: new Date(e.timestamp).getTime(), y: e.temperature_c }))
+          .filter(pt => pt.y !== null && pt.y !== undefined && pt.y >= -20 && pt.y <= 60);
+
+        const humData = filtered
+          .map(e => ({ x: new Date(e.timestamp).getTime(), y: e.humidity_pct }))
+          .filter(pt => pt.y !== null && pt.y !== undefined && pt.y >= 0 && pt.y <= 100);
+
+        mainChart.data = {
+          datasets: [
+            {
+              label: '室温 (°C)',
+              data: tempData,
+              borderColor: '#34d399',
+              backgroundColor: 'rgba(52, 211, 153, 0.1)',
+              yAxisID: 'yTemp',
+              tension: 0.3,
+              borderWidth: 2,
+              pointRadius: 2
+            },
+            {
+              label: '湿度 (%)',
+              data: humData,
+              borderColor: '#38bdf8',
+              backgroundColor: 'rgba(56, 189, 248, 0.1)',
+              yAxisID: 'yHum',
+              tension: 0.3,
+              borderWidth: 2,
+              pointRadius: 2
+            }
+          ]
+        };
         mainChart.options.scales = {
-          x: { grid: { color: 'rgba(148, 163, 184, 0.05)' } },
+          x: xAxisConfig,
           yTemp: {
             type: 'linear',
             position: 'left',
@@ -743,19 +1012,24 @@
         };
 
       } else if (currentTab === 'pressure') {
-        const pressures = filtered.map(e => e.pressure_hpa !== undefined && e.pressure_hpa !== null ? e.pressure_hpa : null);
-        mainChart.data.labels = labels;
-        mainChart.data.datasets = [{
-          label: '気圧 (hPa)',
-          data: pressures,
-          borderColor: '#a78bfa',
-          backgroundColor: 'rgba(167, 139, 250, 0.15)',
-          fill: true,
-          tension: 0.3,
-          borderWidth: 2
-        }];
+        const pressureData = filtered
+          .map(e => ({ x: new Date(e.timestamp).getTime(), y: e.pressure_hpa }))
+          .filter(pt => pt.y !== null && pt.y !== undefined && pt.y >= 800 && pt.y <= 1200);
+
+        mainChart.data = {
+          datasets: [{
+            label: '気圧 (hPa)',
+            data: pressureData,
+            borderColor: '#a78bfa',
+            backgroundColor: 'rgba(167, 139, 250, 0.15)',
+            fill: true,
+            tension: 0.3,
+            borderWidth: 2,
+            pointRadius: 2
+          }]
+        };
         mainChart.options.scales = {
-          x: { grid: { color: 'rgba(148, 163, 184, 0.05)' } },
+          x: xAxisConfig,
           y: {
             title: { display: true, text: '気圧 (hPa)', color: '#a78bfa' },
             grid: { color: 'rgba(148, 163, 184, 0.05)' }
@@ -776,7 +1050,7 @@
       tbody.innerHTML = events.map(e => {
         const dt = new Date(e.timestamp);
         const timeStr = `${dt.toLocaleDateString()} ${dt.toLocaleTimeString()}`;
-        let weightStr = `${e.weight_g !== undefined ? e.weight_g.toFixed(1) + 'g' : '-'}`;
+        let weightStr = `${e.weight_g !== undefined && e.weight_g !== null ? e.weight_g.toFixed(1) + 'g' : '-'}`;
         if (e.delta_g !== undefined && e.delta_g !== null) {
           const sign = e.delta_g > 0 ? '+' : '';
           weightStr += ` (${sign}${e.delta_g.toFixed(1)}g)`;

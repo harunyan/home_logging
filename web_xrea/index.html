@@ -7,8 +7,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
-  <!-- Chart.js -->
+  <!-- Chart.js & Zoom / Pan Plugin -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1/dist/chartjs-plugin-zoom.min.js"></script>
   <style>
     :root {
       /* Matching veris.jp Slate Theme */
@@ -199,7 +201,7 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       flex-wrap: wrap;
       gap: 12px;
     }
@@ -242,6 +244,7 @@
       padding: 4px;
       border-radius: 10px;
       border: 1px solid var(--border-slate);
+      flex-wrap: wrap;
     }
 
     .range-btn {
@@ -266,10 +269,106 @@
       font-weight: 700;
     }
 
+    /* Time Navigation Bar */
+    .time-nav-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      padding: 8px 14px;
+      background: rgba(15, 23, 42, 0.65);
+      border-radius: 10px;
+      border: 1px solid var(--border-slate);
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .time-nav-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .nav-btn {
+      background: rgba(30, 41, 59, 0.8);
+      color: var(--text-main);
+      border: 1px solid var(--border-slate);
+      padding: 5px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-weight: 500;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .nav-btn:hover {
+      background: rgba(51, 65, 85, 0.8);
+      color: var(--accent-sky);
+      border-color: rgba(56, 189, 248, 0.3);
+    }
+
+    .nav-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+    }
+
+    .nav-btn-live {
+      color: var(--accent-emerald);
+      border-color: rgba(52, 211, 153, 0.3);
+    }
+    .nav-btn-live:hover {
+      color: #ffffff;
+      background: rgba(52, 211, 153, 0.2);
+    }
+
+    .time-window-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(11, 15, 25, 0.9);
+      padding: 5px 12px;
+      border-radius: 6px;
+      font-size: 0.76rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-main);
+      border: 1px solid var(--border-slate);
+    }
+
+    .pulse-live {
+      color: var(--accent-emerald);
+      font-weight: 700;
+      font-size: 0.72rem;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .pulse-past {
+      color: var(--accent-orange);
+      font-weight: 700;
+      font-size: 0.72rem;
+    }
+
+    .pan-hint {
+      font-size: 0.72rem;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
     .chart-container {
       position: relative;
       height: 320px;
       width: 100%;
+      cursor: grab;
+    }
+    .chart-container:active {
+      cursor: grabbing;
     }
 
     /* History Table */
@@ -380,7 +479,7 @@
       </div>
     </div>
 
-    <!-- Time-Series Graph -->
+    <!-- Time-Series Graph Section -->
     <div class="graph-section">
       <div class="graph-header">
         <div class="tabs">
@@ -390,12 +489,30 @@
         </div>
         <div class="range-selector">
           <button class="range-btn" id="range-1h" onclick="setRange('1h')">1時間</button>
+          <button class="range-btn" id="range-3h" onclick="setRange('3h')">3時間</button>
           <button class="range-btn" id="range-6h" onclick="setRange('6h')">6時間</button>
           <button class="range-btn active" id="range-24h" onclick="setRange('24h')">24時間</button>
           <button class="range-btn" id="range-7d" onclick="setRange('7d')">7日間</button>
           <button class="range-btn" id="range-all" onclick="setRange('all')">全件</button>
         </div>
       </div>
+
+      <!-- Time Navigation / Pan Controls -->
+      <div class="time-nav-bar">
+        <div class="time-nav-controls">
+          <button class="nav-btn" onclick="panTimeStep(-1)" title="過去へスクロール">◀ 過去へ</button>
+          <div class="time-window-badge">
+            <span id="live-indicator" class="pulse-live">● LIVE</span>
+            <span id="time-window-text">最新 24時間</span>
+          </div>
+          <button class="nav-btn" id="btn-nav-next" onclick="panTimeStep(1)" title="未来（最新方向）へスクロール" disabled>次へ ▶</button>
+          <button class="nav-btn nav-btn-live" id="btn-nav-live" onclick="resetToLive()" title="最新のリアルタイム表示に戻る">最新 ⏩</button>
+        </div>
+        <div class="pan-hint">
+          <span>👆 グラフを直接左右にドラッグ／スワイプしてスクロールできます</span>
+        </div>
+      </div>
+
       <div class="chart-container">
         <canvas id="cloudChart"></canvas>
       </div>
@@ -426,11 +543,23 @@
     let cloudChart = null;
     let currentTab = 'weight';
     let currentRange = '24h';
+    let timeOffsetMs = 0; // 0 = Live, >0 = Looking at past
     let cloudEvents = [];
 
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.08)';
     Chart.defaults.font.family = "'Outfit', 'Noto Sans JP', sans-serif";
+
+    function getRangeDurationMs(range) {
+      switch (range) {
+        case '1h':  return 3600 * 1000;
+        case '3h':  return 3 * 3600 * 1000;
+        case '6h':  return 6 * 3600 * 1000;
+        case '24h': return 24 * 3600 * 1000;
+        case '7d':  return 7 * 86400 * 1000;
+        default:    return 24 * 3600 * 1000;
+      }
+    }
 
     function initChart() {
       const ctx = document.getElementById('cloudChart').getContext('2d');
@@ -440,7 +569,7 @@
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          interaction: { mode: 'nearest', intersect: false },
+          interaction: { mode: 'index', intersect: false },
           plugins: {
             legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, color: '#94a3b8' } },
             tooltip: {
@@ -454,39 +583,101 @@
                 title: function(items) {
                   if (!items.length) return '';
                   const d = new Date(items[0].parsed.x);
-                  return `${d.getFullYear()}/${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`;
+                  return `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}:${d.getSeconds().toString().padStart(2,'0')}`;
+                }
+              }
+            },
+            zoom: {
+              pan: {
+                enabled: true,
+                mode: 'x',
+                onPan: function({ chart }) {
+                  const xScale = chart.scales.x;
+                  handlePanUpdate(xScale.min, xScale.max);
                 }
               }
             }
           },
           scales: {
-            x: { type: 'linear', grid: { color: 'rgba(148, 163, 184, 0.05)' } },
+            x: {
+              type: 'linear',
+              grid: { color: 'rgba(148, 163, 184, 0.05)' }
+            },
             y: { grid: { color: 'rgba(148, 163, 184, 0.05)' } }
           }
         }
       });
     }
 
+    function handlePanUpdate(minTime, maxTime) {
+      if (currentRange === 'all') return;
+      const now = Date.now();
+      timeOffsetMs = Math.max(0, now - maxTime);
+      updateTimeNavUI(minTime, maxTime);
+      updateYScaleForVisibleRange(minTime, maxTime);
+    }
+
+    function updateTimeNavUI(minTime, maxTime) {
+      const liveIndicator = document.getElementById('live-indicator');
+      const timeWindowText = document.getElementById('time-window-text');
+      const btnNext = document.getElementById('btn-nav-next');
+      const btnLive = document.getElementById('btn-nav-live');
+
+      const isLive = timeOffsetMs <= 60000; // within 1 minute is considered live
+
+      if (isLive) {
+        liveIndicator.className = 'pulse-live';
+        liveIndicator.textContent = '● LIVE';
+        btnNext.disabled = true;
+      } else {
+        liveIndicator.className = 'pulse-past';
+        liveIndicator.textContent = '⏱️ 過去';
+        btnNext.disabled = false;
+      }
+
+      if (minTime && maxTime) {
+        const dMin = new Date(minTime);
+        const dMax = new Date(maxTime);
+        const formatTime = (d) => `${d.getMonth()+1}/${d.getDate()} ${d.getHours().toString().padStart(2,'0')}:${d.getMinutes().toString().padStart(2,'0')}`;
+        timeWindowText.textContent = `${formatTime(dMin)} 〜 ${formatTime(dMax)}`;
+      }
+    }
+
+    function panTimeStep(direction) {
+      if (currentRange === 'all') return;
+      const stepMs = getRangeDurationMs(currentRange) * 0.5; // step by half duration
+
+      if (direction === -1) {
+        // Go back in time
+        timeOffsetMs += stepMs;
+      } else {
+        // Go forward in time
+        timeOffsetMs = Math.max(0, timeOffsetMs - stepMs);
+      }
+
+      renderChart();
+    }
+
+    function resetToLive() {
+      timeOffsetMs = 0;
+      renderChart();
+    }
+
     function getXAxisConfig() {
       const now = Date.now();
       let min = null;
-      let max = now;
-      let isShort = true;
+      let max = now - timeOffsetMs;
+      let isShort = ['1h', '3h', '6h', '24h'].includes(currentRange);
 
-      if (currentRange === '1h') {
-        min = now - 3600 * 1000;
-      } else if (currentRange === '6h') {
-        min = now - 6 * 3600 * 1000;
-      } else if (currentRange === '24h') {
-        min = now - 24 * 3600 * 1000;
-      } else if (currentRange === '7d') {
-        min = now - 7 * 86400 * 1000;
-        isShort = false;
+      if (currentRange !== 'all') {
+        const duration = getRangeDurationMs(currentRange);
+        min = max - duration;
       } else {
-        // 'all'
         max = null;
         isShort = false;
       }
+
+      updateTimeNavUI(min, max);
 
       return {
         type: 'linear',
@@ -510,9 +701,43 @@
       };
     }
 
+    function updateYScaleForVisibleRange(minTime, maxTime) {
+      if (!cloudChart || !minTime || !maxTime) return;
+
+      const filtered = cloudEvents.filter(e => {
+        const t = new Date(e.timestamp).getTime();
+        return t >= minTime && t <= maxTime;
+      });
+
+      if (currentTab === 'weight') {
+        const weights = filtered.map(e => e.weight_g).filter(w => w !== null && w >= 0 && w <= 1000);
+        if (weights.length > 0) {
+          const minV = Math.min(...weights);
+          const maxV = Math.max(...weights);
+          const latest = weights[0]; // newest in filtered
+
+          const lower = Math.min(minV - 10, latest - 25);
+          const upper = Math.max(maxV + 10, latest + 25);
+
+          let yMin = Math.max(0, Math.floor(lower / 5) * 5);
+          let yMax = Math.ceil(upper / 5) * 5;
+
+          if (yMax - yMin < 30) {
+            const center = Math.round(latest / 5) * 5;
+            yMin = Math.max(0, center - 20);
+            yMax = yMin + 40;
+          }
+
+          cloudChart.options.scales.y.min = yMin;
+          cloudChart.options.scales.y.max = yMax;
+          cloudChart.update('none'); // Update without animation
+        }
+      }
+    }
+
     async function fetchCloudData() {
       try {
-        const url = `api/get_sensor.php?limit=500&range=${currentRange}`;
+        const url = `api/get_sensor.php?limit=1500&range=7d`;
         const res = await fetch(url);
         const data = await res.json();
 
@@ -564,81 +789,53 @@
       document.getElementById('sum-events-count').textContent = s.total_events_today;
     }
 
-    function initStateFromUrlOrStorage() {
-      const params = new URLSearchParams(window.location.search);
-      const validRanges = ['1h', '6h', '24h', '7d', 'all'];
-      const validTabs = ['weight', 'env', 'pressure'];
-
-      const urlRange = params.get('range');
-      const savedRange = localStorage.getItem('cat_log_range');
-      if (urlRange && validRanges.includes(urlRange)) {
-        currentRange = urlRange;
-      } else if (savedRange && validRanges.includes(savedRange)) {
-        currentRange = savedRange;
-      }
-
-      const urlTab = params.get('tab');
-      const savedTab = localStorage.getItem('cat_log_tab');
-      if (urlTab && validTabs.includes(urlTab)) {
-        currentTab = urlTab;
-      } else if (savedTab && validTabs.includes(savedTab)) {
-        currentTab = savedTab;
-      }
-
-      // Sync UI button active states
-      document.querySelectorAll('.range-btn').forEach(b => {
-        b.classList.toggle('active', b.id === `range-${currentRange}`);
-      });
-      document.querySelectorAll('.tab-btn').forEach(b => {
-        b.classList.toggle('active', b.id === `tab-${currentTab}`);
-      });
-    }
-
-    function syncStateToUrlAndStorage() {
-      localStorage.setItem('cat_log_range', currentRange);
-      localStorage.setItem('cat_log_tab', currentTab);
-      
-      const newUrl = `${window.location.pathname}?range=${currentRange}&tab=${currentTab}`;
-      window.history.replaceState(null, '', newUrl);
-    }
-
     function switchTab(tab) {
       currentTab = tab;
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       const activeBtn = document.getElementById(`tab-${tab}`);
       if (activeBtn) activeBtn.classList.add('active');
-      syncStateToUrlAndStorage();
       renderChart();
     }
 
     function setRange(range) {
       currentRange = range;
+      timeOffsetMs = 0; // reset offset on range change
       document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
       const activeBtn = document.getElementById(`range-${range}`);
       if (activeBtn) activeBtn.classList.add('active');
-      syncStateToUrlAndStorage();
-      fetchCloudData();
+      renderChart();
     }
 
     function renderChart() {
-      if (!cloudChart) return;
+      if (!cloudChart || cloudEvents.length === 0) return;
 
-      const filtered = [...cloudEvents].reverse(); // Oldest to newest
       const xAxisConfig = getXAxisConfig();
+      const minTime = xAxisConfig.min;
+      const maxTime = xAxisConfig.max;
+
+      // Filter events in visible range for optimal Y-axis
+      const visibleEvents = minTime && maxTime
+        ? cloudEvents.filter(e => {
+            const t = new Date(e.timestamp).getTime();
+            return t >= minTime && t <= maxTime;
+          })
+        : cloudEvents;
+
+      const filtered = [...cloudEvents].reverse(); // chronological
 
       if (currentTab === 'weight') {
         const weightData = filtered
           .map(e => ({ x: new Date(e.timestamp).getTime(), y: e.weight_g }))
           .filter(pt => pt.y !== null && pt.y >= 0 && pt.y <= 1000);
 
-        let yMin = 200, yMax = 260;
-        if (weightData.length > 0) {
-          const vals = weightData.map(pt => pt.y);
-          const minV = Math.min(...vals);
-          const maxV = Math.max(...vals);
-          const latest = vals[vals.length - 1];
+        const visibleWeights = visibleEvents.map(e => e.weight_g).filter(w => w !== null && w >= 0 && w <= 1000);
 
-          // 現在値および期間内の変化幅を包含し、現在値から約±20〜25gの最適なレンジを計算
+        let yMin = 200, yMax = 260;
+        if (visibleWeights.length > 0) {
+          const minV = Math.min(...visibleWeights);
+          const maxV = Math.max(...visibleWeights);
+          const latest = visibleWeights[0];
+
           const lower = Math.min(minV - 10, latest - 25);
           const upper = Math.max(maxV + 10, latest + 25);
 
@@ -710,19 +907,31 @@
         };
         cloudChart.options.scales = {
           x: xAxisConfig,
-          yTemp: { type: 'linear', position: 'left', title: { display: true, text: '温度 (°C)', color: '#34d399' }, grid: { color: 'rgba(148, 163, 184, 0.05)' } },
-          yHum: { type: 'linear', position: 'right', title: { display: true, text: '湿度 (%)', color: '#38bdf8' }, grid: { drawOnChartArea: false }, suggestedMin: 0, suggestedMax: 100 }
+          yTemp: { 
+            type: 'linear', 
+            position: 'left', 
+            title: { display: true, text: '温度 (°C)', color: '#34d399' }, 
+            grid: { color: 'rgba(148, 163, 184, 0.05)' } 
+          },
+          yHum: { 
+            type: 'linear', 
+            position: 'right', 
+            title: { display: true, text: '湿度 (%)', color: '#38bdf8' }, 
+            grid: { drawOnChartArea: false }, 
+            suggestedMin: 0, 
+            suggestedMax: 100 
+          }
         };
 
       } else if (currentTab === 'pressure') {
-        const pressData = filtered
+        const pressureData = filtered
           .map(e => ({ x: new Date(e.timestamp).getTime(), y: e.pressure_hpa }))
           .filter(pt => pt.y !== null && pt.y >= 800 && pt.y <= 1200);
 
         cloudChart.data = {
           datasets: [{
             label: '気圧 (hPa)',
-            data: pressData,
+            data: pressureData,
             borderColor: '#a78bfa',
             backgroundColor: 'rgba(167, 139, 250, 0.15)',
             fill: true,
@@ -733,7 +942,10 @@
         };
         cloudChart.options.scales = {
           x: xAxisConfig,
-          y: { title: { display: true, text: '気圧 (hPa)', color: '#a78bfa' }, grid: { color: 'rgba(148, 163, 184, 0.05)' } }
+          y: { 
+            title: { display: true, text: '気圧 (hPa)', color: '#a78bfa' }, 
+            grid: { color: 'rgba(148, 163, 184, 0.05)' } 
+          }
         };
       }
 
@@ -785,7 +997,6 @@
         .replace(/'/g, '&#039;');
     }
 
-    initStateFromUrlOrStorage();
     initChart();
     fetchCloudData();
     setInterval(fetchCloudData, 60000); // 1分おきに自動更新

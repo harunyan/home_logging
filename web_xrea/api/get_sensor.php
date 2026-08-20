@@ -18,10 +18,10 @@ require_once __DIR__ . '/config.php';
 
 $db = get_db_connection();
 
-$limit = isset($_GET['limit']) ? min(1000, max(1, (int)$_GET['limit'])) : 300;
+$limit = isset($_GET['limit']) ? min(3000, max(1, (int)$_GET['limit'])) : 1500;
 $deviceId = $_GET['device_id'] ?? '';
 $eventType = $_GET['event_type'] ?? '';
-$range = $_GET['range'] ?? ''; // '1h', '6h', '24h', '7d', 'all'
+$range = $_GET['range'] ?? ''; // '1h', '3h', '6h', '24h', '7d', 'all'
 
 // Auto-cleanup or manual cleanup of past anomalies if requested
 if (isset($_GET['cleanup_anomalies']) && $_GET['cleanup_anomalies'] === '1') {
@@ -43,6 +43,7 @@ if (!empty($range) && $range !== 'all') {
     $seconds = 0;
     switch ($range) {
         case '1h':  $seconds = 3600; break;
+        case '3h':  $seconds = 3 * 3600; break;
         case '6h':  $seconds = 6 * 3600; break;
         case '24h': $seconds = 24 * 3600; break;
         case '7d':  $seconds = 7 * 86400; break;
