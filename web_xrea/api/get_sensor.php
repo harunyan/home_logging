@@ -83,17 +83,33 @@ while ($row = $results->fetchArray(SQLITE3_ASSOC)) {
 // Calculate summary stats for today (with anomaly filtering)
 $todayStart = date('Y-m-d 00:00:00');
 $todaySql = "SELECT COUNT(*) as total_events,
-                    SUM(CASE WHEN event_type = 'meal_finished' THEN 1 ELSE 0 END) as meal_count,
-                    SUM(CASE WHEN event_type = 'meal_finished' AND delta_g < 0 AND delta_g >= -500 THEN -delta_g ELSE 0 END) as eaten_g,
                     MAX(CASE WHEN device_type = 'feeder' AND weight_g >= 0 AND weight_g <= 1000 THEN weight_g END) as max_food,
                     MIN(CASE WHEN device_type = 'feeder' AND weight_g >= 0 AND weight_g <= 1000 THEN weight_g END) as min_food,
                     MAX(CASE WHEN temperature_c BETWEEN -20 AND 60 THEN temperature_c END) as max_temp,
                     MIN(CASE WHEN temperature_c BETWEEN -20 AND 60 THEN temperature_c END) as min_temp,
                     MAX(CASE WHEN humidity_pct BETWEEN 0 AND 100 THEN humidity_pct END) as max_hum,
                     MIN(CASE WHEN humidity_pct BETWEEN 0 AND 100 THEN humidity_pct END) as min_hum
-             FROM events WHERE timestamp >= '{$todayStart}';";
+             FROM events WHERE timestamp >= '{$todayStart}' OR received_at >= '{$todayStart}';";
 
 $summaryRow = $db->querySingle($todaySql, true);
+
+// Intelligent meal session debouncing (group meal events within 3 minutes into 1 meal session)
+$mealsSql = "SELECT timestamp, received_at, weight_g, delta_g FROM events WHERE event_type = 'meal_finished' AND (timestamp >= '{$todayStart}' OR received_at >= '{$todayStart}') ORDER BY id ASC;";
+$mealsRes = $db->query($mealsSql);
+$mealSessionCount = 0;
+$totalEatenG = 0;
+$lastMealTime = 0;
+
+while ($m = $mealsRes->fetchArray(SQLITE3_ASSOC)) {
+    $ts = strtotime($m['timestamp'] ?? $m['received_at']);
+    if ($lastMealTime === 0 || ($ts - $lastMealTime > 180)) { // 3 minutes debounce window
+        $mealSessionCount++;
+    }
+    if (isset($m['delta_g']) && $m['delta_g'] < 0 && $m['delta_g'] >= -500) {
+        $totalEatenG += -$m['delta_g'];
+    }
+    $lastMealTime = $ts;
+}
 
 // Latest status (safeguarded against glitches)
 $latestFeeder = $db->querySingle("SELECT weight_g, timestamp FROM events WHERE (device_type = 'feeder' OR event_type = 'food_level') AND weight_g >= 0 AND weight_g <= 1000 ORDER BY id DESC LIMIT 1;", true);
@@ -112,8 +128,8 @@ $response = [
         'latest_humidity_pct'  => $latestEnv['humidity_pct'] ?? null,
         'latest_pressure_hpa'  => $latestEnv['pressure_hpa'] ?? null,
         'latest_env_time'      => $latestEnv['timestamp'] ?? null,
-        'today_meals_count'    => (int)($summaryRow['meal_count'] ?? 0),
-        'today_food_eaten_g'   => round((float)($summaryRow['eaten_g'] ?? 0), 1),
+        'today_meals_count'    => $mealSessionCount,
+        'today_food_eaten_g'   => round($totalEatenG, 1),
         'total_events_today'   => (int)($summaryRow['total_events'] ?? 0),
         'today_temp_range'     => [
             'min' => $summaryRow['min_temp'] ?? null,

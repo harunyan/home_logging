@@ -227,15 +227,20 @@ func (s *Storage) GetSummary() models.SummaryStats {
 	var summary models.SummaryStats
 	summary.ActiveDevicesCount = len(s.deviceMap)
 
+	var lastMealTime time.Time
+
 	for _, ev := range s.memoryCache {
 		if ev.Timestamp.After(todayStart) {
 			summary.TotalEventsToday++
 
 			if ev.EventType == "meal_finished" {
-				summary.TodayMealsCount++
+				if lastMealTime.IsZero() || ev.Timestamp.Sub(lastMealTime) > 3*time.Minute {
+					summary.TodayMealsCount++
+				}
 				if ev.DeltaG != nil && *ev.DeltaG < 0 {
 					summary.TodayFoodEatenG += -(*ev.DeltaG)
 				}
+				lastMealTime = ev.Timestamp
 			}
 
 			// 給餌器の餌残量 (重量測定イベント food_level / meal_finished / refill または WeightG > 0 のみ)
