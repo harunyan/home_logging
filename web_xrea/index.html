@@ -971,38 +971,51 @@
         };
 
       } else if (currentTab === 'env') {
-        const tempData = filtered
-          .map(e => ({ x: new Date(e.timestamp).getTime(), y: e.temperature_c }))
-          .filter(pt => pt.y !== null && pt.y >= -20 && pt.y <= 60);
+        const envDevices = [...new Set(filtered.filter(e => e.temperature_c !== null && e.temperature_c !== undefined).map(e => e.device_id || 'default'))];
+        const datasets = [];
+        const colors = [
+          { temp: '#34d399', hum: '#38bdf8' }, // Emerald / Sky
+          { temp: '#fb923c', hum: '#a78bfa' }, // Orange / Violet
+          { temp: '#f43f5e', hum: '#22d3ee' }, // Rose / Cyan
+          { temp: '#eab308', hum: '#818cf8' }  // Yellow / Indigo
+        ];
 
-        const humData = filtered
-          .map(e => ({ x: new Date(e.timestamp).getTime(), y: e.humidity_pct }))
-          .filter(pt => pt.y !== null && pt.y >= 0 && pt.y <= 100);
+        envDevices.forEach((devId, idx) => {
+          const c = colors[idx % colors.length];
+          const devLabel = envDevices.length > 1 ? `[${devId}] ` : '';
 
-        cloudChart.data = {
-          datasets: [
-            {
-              label: '室温 (°C)',
-              data: tempData,
-              borderColor: '#34d399',
-              backgroundColor: 'rgba(52, 211, 153, 0.1)',
+          const devEvents = filtered.filter(e => (e.device_id || 'default') === devId);
+          const tData = devEvents.map(e => ({ x: new Date(e.timestamp).getTime(), y: e.temperature_c })).filter(pt => pt.y !== null && pt.y >= -20 && pt.y <= 60);
+          const hData = devEvents.map(e => ({ x: new Date(e.timestamp).getTime(), y: e.humidity_pct })).filter(pt => pt.y !== null && pt.y >= 0 && pt.y <= 100);
+
+          if (tData.length > 0) {
+            datasets.push({
+              label: `${devLabel}室温 (°C)`,
+              data: tData,
+              borderColor: c.temp,
+              backgroundColor: c.temp + '1a',
               yAxisID: 'yTemp',
               tension: 0.3,
               borderWidth: 2,
               pointRadius: 2
-            },
-            {
-              label: '湿度 (%)',
-              data: humData,
-              borderColor: '#38bdf8',
-              backgroundColor: 'rgba(56, 189, 248, 0.1)',
+            });
+          }
+          if (hData.length > 0) {
+            datasets.push({
+              label: `${devLabel}湿度 (%)`,
+              data: hData,
+              borderColor: c.hum,
+              backgroundColor: c.hum + '1a',
+              borderDash: [4, 4],
               yAxisID: 'yHum',
               tension: 0.3,
               borderWidth: 2,
               pointRadius: 2
-            }
-          ]
-        };
+            });
+          }
+        });
+
+        cloudChart.data = { datasets };
         cloudChart.options.scales = {
           x: xAxisConfig,
           yTemp: { 
@@ -1022,22 +1035,30 @@
         };
 
       } else if (currentTab === 'pressure') {
-        const pressureData = filtered
-          .map(e => ({ x: new Date(e.timestamp).getTime(), y: e.pressure_hpa }))
-          .filter(pt => pt.y !== null && pt.y >= 800 && pt.y <= 1200);
+        const pressDevices = [...new Set(filtered.filter(e => e.pressure_hpa !== null && e.pressure_hpa !== undefined).map(e => e.device_id || 'default'))];
+        const colors = ['#a78bfa', '#38bdf8', '#34d399', '#fb923c'];
+        const datasets = [];
 
-        cloudChart.data = {
-          datasets: [{
-            label: '気圧 (hPa)',
-            data: pressureData,
-            borderColor: '#a78bfa',
-            backgroundColor: 'rgba(167, 139, 250, 0.15)',
-            fill: true,
-            tension: 0.3,
-            borderWidth: 2,
-            pointRadius: 2
-          }]
-        };
+        pressDevices.forEach((devId, idx) => {
+          const c = colors[idx % colors.length];
+          const devLabel = pressDevices.length > 1 ? `[${devId}] ` : '';
+          const devEvents = filtered.filter(e => (e.device_id || 'default') === devId);
+          const pData = devEvents.map(e => ({ x: new Date(e.timestamp).getTime(), y: e.pressure_hpa })).filter(pt => pt.y !== null && pt.y >= 800 && pt.y <= 1200);
+
+          if (pData.length > 0) {
+            datasets.push({
+              label: `${devLabel}気圧 (hPa)`,
+              data: pData,
+              borderColor: c,
+              backgroundColor: c + '1a',
+              tension: 0.3,
+              borderWidth: 2,
+              pointRadius: 2
+            });
+          }
+        });
+
+        cloudChart.data = { datasets };
         cloudChart.options.scales = {
           x: xAxisConfig,
           y: { 

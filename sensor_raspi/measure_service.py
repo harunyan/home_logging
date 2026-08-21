@@ -365,6 +365,53 @@ class FeederMonitor:
                 time.sleep(1.0)
 
 
+class EnvOnlyMonitor:
+    """
+    Dedicated monitor for standalone ENV IV sensors (e.g. Raspberry Pi Zero + Grove HAT).
+    No HX711 loadcell is initialized or required.
+    """
+
+    def __init__(self, sender: WinSVSender, config: Dict[str, Any], env_sensor: EnvIVSensor):
+        self.sender = sender
+        self.config = config
+        self.env_sensor = env_sensor
+        self.device_id = config.get("device_id", "raspizero-env-01")
+        self.device_type = config.get("device_type", "sensor")
+        self.interval_sec = config.get("env_interval_sec", 60)
+
+    def run_loop(self):
+        print(f"🌡️ [EnvOnlyMonitor] Started for device: {self.device_id} (Interval: {self.interval_sec}s)")
+        print(f"📡 WinSV Target: {self.sender.server_url} (Encrypted)")
+
+        while True:
+            try:
+                env_data = self.env_sensor.read_all()
+                if env_data:
+                    temp = env_data.get("temperature_c")
+                    hum = env_data.get("humidity_pct")
+                    press = env_data.get("pressure_hpa")
+                    temp_str = f"{temp:.1f}°C" if temp is not None else "--.-°C"
+                    hum_str = f"{hum:.1f}%" if hum is not None else "--.-%"
+                    press_str = f"{press:.1f} hPa" if press is not None else "--.- hPa"
+                    print(f"🌡️ [{self.device_id}] 室温: {temp_str} | 湿度: {hum_str} | 気圧: {press_str}")
+
+                    payload = {
+                        "device_id": self.device_id,
+                        "device_type": self.device_type,
+                        "event_type": "env_measured",
+                        "note": self.config.get("note", "Raspberry Pi Zero ENV IV 定期計測"),
+                        "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                        **env_data
+                    }
+                    self.sender.send_event(payload)
+
+                time.sleep(self.interval_sec)
+
+            except Exception as e:
+                print(f"⚠️ [EnvOnlyMonitor] Error: {e}")
+                time.sleep(5.0)
+
+
 def load_config() -> Dict[str, Any]:
     default_offset = 37524.28
     existing_tare_file = "/home/morimoto/www/adc_0g_hx711.txt"
@@ -404,16 +451,19 @@ def load_config() -> Dict[str, Any]:
 
 def main():
     cfg = load_config()
+    mode = cfg.get("mode", "feeder")
 
     print("==================================================")
     print("🐾 Cat Logging Sensor Daemon (Raspberry Pi)")
     print("==================================================")
     print(f"Device ID : {cfg.get('device_id')}")
-    print(f"Mode      : {cfg.get('mode')}")
+    print(f"Mode      : {mode}")
     print(f"WinSV URL : {cfg.get('server_url')}")
-    print(f"Gain      : {cfg.get('gain', 128)}")
-    print(f"Ref Unit  : {cfg.get('reference_unit')}")
-    print(f"Offset    : {cfg.get('offset')}")
+    print(f"ENV IV    : {'Enabled' if cfg.get('enable_env_iv', True) else 'Disabled'}")
+    if mode != "env_only" and mode != "sensor":
+        print(f"Gain      : {cfg.get('gain', 128)}")
+        print(f"Ref Unit  : {cfg.get('reference_unit')}")
+        print(f"Offset    : {cfg.get('offset')}")
     print("==================================================")
 
     sender = WinSVSender(
@@ -421,6 +471,27 @@ def main():
         queue_file=cfg.get("offline_queue_file", "offline_queue.json")
     )
 
+    # Initialize M5Stack ENV IV via Grove HAT (I2C)
+    env_sensor = None
+    if cfg.get("enable_env_iv", True):
+        env_sensor = EnvIVSensor(
+            i2c_bus_num=cfg.get("i2c_bus", 1),
+            mock=cfg.get("mock_mode", False)
+        )
+
+    # 1. Standalone Environmental Sensor Mode (Raspberry Pi Zero)
+    if mode in ("env_only", "sensor", "env"):
+        if not env_sensor:
+            print("❌ エラー: ENV IV センサーが無効または初期化できませんでした。")
+            return
+        monitor = EnvOnlyMonitor(sender, cfg, env_sensor)
+        try:
+            monitor.run_loop()
+        except KeyboardInterrupt:
+            print("\n停止中...")
+        return
+
+    # 2. Scale / Feeder Load Cell Modes (Raspberry Pi 4 / 3)
     hx = HX711(
         dout_pin=cfg.get("pin_dout", 6),
         pd_sck_pin=cfg.get("pin_pd_sck", 5),
@@ -431,15 +502,6 @@ def main():
     hx.set_reference_unit(cfg.get("reference_unit", 1.0))
     hx.set_offset(cfg.get("offset", 0.0))
 
-    # Initialize M5Stack ENV IV via Grove HAT (I2C)
-    env_sensor = None
-    if cfg.get("enable_env_iv", True):
-        env_sensor = EnvIVSensor(
-            i2c_bus_num=cfg.get("i2c_bus", 1),
-            mock=cfg.get("mock_mode", False)
-        )
-
-    mode = cfg.get("mode", "feeder")
     try:
         if mode == "feeder":
             monitor = FeederMonitor(hx, sender, cfg, env_sensor=env_sensor)
