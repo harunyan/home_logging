@@ -33,11 +33,13 @@ function get_db_connection() {
             temperature_c REAL,
             humidity_pct REAL,
             pressure_hpa REAL,
+            co2_ppm REAL,
             raw_value INTEGER,
             note TEXT,
             timestamp TEXT NOT NULL,
             received_at TEXT NOT NULL
         );");
+        @$db->exec("ALTER TABLE events ADD COLUMN co2_ppm REAL;");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_events_ts ON events(timestamp);");
         $db->exec("CREATE INDEX IF NOT EXISTS idx_events_dev ON events(device_id);");
     }

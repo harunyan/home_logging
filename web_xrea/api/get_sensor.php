@@ -155,13 +155,14 @@ $latestEnvs = [];
 while ($d = $devRes->fetchArray(SQLITE3_ASSOC)) {
     $devId = $d['device_id'];
     $escDevId = SQLite3::escapeString($devId);
-    $row = $db->querySingle("SELECT device_id, temperature_c, humidity_pct, pressure_hpa, timestamp, note FROM events WHERE device_id = '{$escDevId}' AND temperature_c IS NOT NULL AND temperature_c BETWEEN -20 AND 60 ORDER BY id DESC LIMIT 1;", true);
+    $row = $db->querySingle("SELECT device_id, temperature_c, humidity_pct, pressure_hpa, co2_ppm, timestamp, note FROM events WHERE device_id = '{$escDevId}' AND temperature_c IS NOT NULL AND temperature_c BETWEEN -20 AND 60 ORDER BY id DESC LIMIT 1;", true);
     if ($row) {
         $latestEnvs[] = [
             'device_id'       => $row['device_id'],
             'temperature_c'   => $row['temperature_c'] !== null ? (float)$row['temperature_c'] : null,
             'humidity_pct'    => $row['humidity_pct'] !== null ? (float)$row['humidity_pct'] : null,
             'pressure_hpa'    => $row['pressure_hpa'] !== null ? (float)$row['pressure_hpa'] : null,
+            'co2_ppm'         => isset($row['co2_ppm']) && $row['co2_ppm'] !== null ? (float)$row['co2_ppm'] : null,
             'timestamp'       => $row['timestamp'],
             'note'            => $row['note'] ?? ''
         ];

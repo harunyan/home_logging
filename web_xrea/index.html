@@ -617,6 +617,7 @@
         <div class="tabs">
           <button class="tab-btn active" id="tab-weight" onclick="switchTab('weight')">🍽️ 餌皿残量・食事</button>
           <button class="tab-btn" id="tab-env" onclick="switchTab('env')">🌡️ 室温・湿度</button>
+          <button class="tab-btn" id="tab-co2" onclick="switchTab('co2')">🍃 CO2</button>
           <button class="tab-btn" id="tab-pressure" onclick="switchTab('pressure')">⏱️ 気圧</button>
         </div>
         <div class="range-selector">
@@ -944,6 +945,9 @@
               const tempStr = env.temperature_c !== null ? `${env.temperature_c.toFixed(1)}°C` : '--.-°C';
               const humStr = env.humidity_pct !== null ? `${env.humidity_pct.toFixed(0)}%` : '--%';
               const pressStr = env.pressure_hpa !== null ? `${env.pressure_hpa.toFixed(0)}hPa` : '--hPa';
+              const co2Str = (env.co2_ppm !== null && env.co2_ppm !== undefined)
+                ? `<span class="env-chip-co2" style="color: ${env.co2_ppm > 1500 ? '#f43f5e' : (env.co2_ppm > 1000 ? '#fb923c' : '#34d399')}; font-weight: 600;">🍃 ${env.co2_ppm.toFixed(0)}ppm</span>`
+                : '';
               const dt = new Date(env.timestamp);
               return `
                 <div class="env-chip-row">
@@ -951,6 +955,7 @@
                   <div class="env-chip-data">
                     <span class="env-chip-temp">${tempStr}</span>
                     <span class="env-chip-hum">💧 ${humStr}</span>
+                    ${co2Str}
                     <span class="env-chip-press">⏱️ ${pressStr}</span>
                   </div>
                 </div>
@@ -978,7 +983,7 @@
     function restoreStateFromUrlAndStorage() {
       const params = new URLSearchParams(window.location.search);
       const validRanges = ['1h', '3h', '6h', '24h', '7d', 'all'];
-      const validTabs = ['weight', 'env', 'pressure'];
+      const validTabs = ['weight', 'env', 'co2', 'pressure'];
 
       const urlRange = params.get('range');
       const savedRange = localStorage.getItem('cat_log_range');
@@ -1158,6 +1163,41 @@
             grid: { drawOnChartArea: false }, 
             suggestedMin: 0, 
             suggestedMax: 100 
+          }
+        };
+
+      } else if (currentTab === 'co2') {
+        const co2Devices = [...new Set(filtered.filter(e => e.co2_ppm !== null && e.co2_ppm !== undefined).map(e => e.device_id || 'default'))];
+        const colors = ['#34d399', '#38bdf8', '#fb923c', '#a78bfa'];
+        const datasets = [];
+
+        co2Devices.forEach((devId, idx) => {
+          const c = colors[idx % colors.length];
+          const devLabel = co2Devices.length > 1 ? `[${devId}] ` : '';
+          const devEvents = filtered.filter(e => (e.device_id || 'default') === devId);
+          const cData = devEvents.map(e => ({ x: new Date(e.timestamp).getTime(), y: e.co2_ppm })).filter(pt => pt.y !== null && pt.y >= 350 && pt.y <= 10000);
+
+          if (cData.length > 0) {
+            datasets.push({
+              label: `${devLabel}CO2 (ppm)`,
+              data: cData,
+              borderColor: c,
+              backgroundColor: c + '1a',
+              tension: 0.3,
+              borderWidth: 2,
+              pointRadius: 2
+            });
+          }
+        });
+
+        cloudChart.data = { datasets };
+        cloudChart.options.scales = {
+          x: xAxisConfig,
+          y: { 
+            title: { display: true, text: 'CO2濃度 (ppm)', color: '#34d399' }, 
+            grid: { color: 'rgba(148, 163, 184, 0.05)' },
+            suggestedMin: 400,
+            suggestedMax: 1500
           }
         };
 

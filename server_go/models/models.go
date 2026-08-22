@@ -13,6 +13,7 @@ type LogEvent struct {
 	TemperatureC *float64  `json:"temperature_c,omitempty"` // Room temperature in °C (M5Stack ENV IV SHT40)
 	HumidityPct  *float64  `json:"humidity_pct,omitempty"`  // Relative humidity in % (M5Stack ENV IV SHT40)
 	PressureHpa  *float64  `json:"pressure_hpa,omitempty"`  // Air pressure in hPa (M5Stack ENV IV BMP280)
+	CO2Ppm       *float64  `json:"co2_ppm,omitempty"`       // CO2 concentration in ppm (SCD40/SCD41/SCD30)
 	RawValue     *int64    `json:"raw_value,omitempty"`     // Raw ADC reading from HX711 (optional for debug)
 	BatteryLevel *float64  `json:"battery_level,omitempty"` // Battery % (optional)
 	Note         string    `json:"note,omitempty"`          // Optional note or tags (e.g., "Cat: Tama")
@@ -72,6 +73,7 @@ type EnvReading struct {
 	TemperatureC *float64  `json:"temperature_c,omitempty"`
 	HumidityPct  *float64  `json:"humidity_pct,omitempty"`
 	PressureHpa  *float64  `json:"pressure_hpa,omitempty"`
+	CO2Ppm       *float64  `json:"co2_ppm,omitempty"`
 	Timestamp    time.Time `json:"timestamp"`
 	Note         string    `json:"note,omitempty"`
 }

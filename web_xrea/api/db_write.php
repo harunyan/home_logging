@@ -44,10 +44,10 @@ $events = isset($eventsData[0]) && is_array($eventsData[0]) ? $eventsData : [$ev
 $db = get_db_connection();
 $stmt = $db->prepare("INSERT INTO events (
     device_id, device_type, event_type, weight_g, delta_g,
-    temperature_c, humidity_pct, pressure_hpa, raw_value, note, timestamp, received_at
+    temperature_c, humidity_pct, pressure_hpa, co2_ppm, raw_value, note, timestamp, received_at
 ) VALUES (
     :device_id, :device_type, :event_type, :weight_g, :delta_g,
-    :temperature_c, :humidity_pct, :pressure_hpa, :raw_value, :note, :timestamp, :received_at
+    :temperature_c, :humidity_pct, :pressure_hpa, :co2_ppm, :raw_value, :note, :timestamp, :received_at
 )");
 
 $savedCount = 0;
@@ -90,6 +90,11 @@ foreach ($events as $ev) {
         $pressHpa = null;
     }
 
+    $co2Ppm = isset($ev['co2_ppm']) ? (float)$ev['co2_ppm'] : null;
+    if ($co2Ppm !== null && ($co2Ppm < 300.0 || $co2Ppm > 10000.0)) {
+        $co2Ppm = null;
+    }
+
     $stmt->bindValue(':device_id', $ev['device_id'], SQLITE3_TEXT);
     $stmt->bindValue(':device_type', $deviceType, SQLITE3_TEXT);
     $stmt->bindValue(':event_type', $eventType, SQLITE3_TEXT);
@@ -98,6 +103,7 @@ foreach ($events as $ev) {
     $stmt->bindValue(':temperature_c', $tempC, SQLITE3_FLOAT);
     $stmt->bindValue(':humidity_pct', $humPct, SQLITE3_FLOAT);
     $stmt->bindValue(':pressure_hpa', $pressHpa, SQLITE3_FLOAT);
+    $stmt->bindValue(':co2_ppm', $co2Ppm, SQLITE3_FLOAT);
     $stmt->bindValue(':raw_value', isset($ev['raw_value']) ? (int)$ev['raw_value'] : null, SQLITE3_INTEGER);
     $stmt->bindValue(':note', $ev['note'] ?? '', SQLITE3_TEXT);
     $stmt->bindValue(':timestamp', $ev['timestamp'] ?? $nowStr, SQLITE3_TEXT);

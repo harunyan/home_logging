@@ -390,10 +390,12 @@ class EnvOnlyMonitor:
                     temp = env_data.get("temperature_c")
                     hum = env_data.get("humidity_pct")
                     press = env_data.get("pressure_hpa")
+                    co2 = env_data.get("co2_ppm")
                     temp_str = f"{temp:.1f}°C" if temp is not None else "--.-°C"
                     hum_str = f"{hum:.1f}%" if hum is not None else "--.-%"
                     press_str = f"{press:.1f} hPa" if press is not None else "--.- hPa"
-                    print(f"🌡️ [{self.device_id}] 室温: {temp_str} | 湿度: {hum_str} | 気圧: {press_str}")
+                    co2_str = f" | CO2: {co2:.0f} ppm" if co2 is not None else ""
+                    print(f"🌡️ [{self.device_id}] 室温: {temp_str} | 湿度: {hum_str} | 気圧: {press_str}{co2_str}")
 
                     payload = {
                         "device_id": self.device_id,
@@ -476,6 +478,7 @@ def main():
     if cfg.get("enable_env_iv", True):
         env_sensor = EnvIVSensor(
             i2c_bus_num=cfg.get("i2c_bus", 1),
+            enable_co2=cfg.get("enable_co2", True),
             mock=cfg.get("mock_mode", False)
         )
 

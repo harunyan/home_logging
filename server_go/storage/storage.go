@@ -314,6 +314,7 @@ func (s *Storage) GetSummary() models.SummaryStats {
 					TemperatureC: ev.TemperatureC,
 					HumidityPct:  ev.HumidityPct,
 					PressureHpa:  ev.PressureHpa,
+					CO2Ppm:       ev.CO2Ppm,
 					Timestamp:    ev.Timestamp,
 					Note:         ev.Note,
 				}

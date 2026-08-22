@@ -161,33 +161,137 @@ class BMP280Reader:
             return None
 
 
-class EnvIVSensor:
-    """Unified interface for M5Stack ENV IV (SHT40 + BMP280) on Raspberry Pi via Grove HAT."""
+class SCD4XReader:
+    """
+    Reads CO2 (ppm), temperature, and humidity from Sensirion SCD40/SCD41 via I2C (0x62).
+    Widely used in M5Stack CO2 Unit and Grove CO2 sensors.
+    """
+    I2C_ADDR = 0x62
 
-    def __init__(self, i2c_bus_num: int = 1, mock: bool = False):
+    def __init__(self, bus: Optional[Any] = None):
+        self.bus = bus
+        self.started = False
+        if self.bus:
+            self._start_periodic()
+
+    def _start_periodic(self):
+        try:
+            # Command 0x21B1: start_periodic_measurement
+            if hasattr(smbus2, "i2c_msg"):
+                msg = smbus2.i2c_msg.write(self.I2C_ADDR, [0x21, 0xB1])
+                self.bus.i2c_rdwr(msg)
+            else:
+                self.bus.write_i2c_block_data(self.I2C_ADDR, 0x21, [0xB1])
+            self.started = True
+        except Exception:
+            self.started = False
+
+    def read_co2(self) -> Optional[float]:
+        if not self.bus:
+            return None
+        if not self.started:
+            self._start_periodic()
+        try:
+            # Command 0xEC05: read_measurement
+            if hasattr(smbus2, "i2c_msg"):
+                write_msg = smbus2.i2c_msg.write(self.I2C_ADDR, [0xEC, 0x05])
+                read_msg = smbus2.i2c_msg.read(self.I2C_ADDR, 9)
+                self.bus.i2c_rdwr(write_msg)
+                time.sleep(0.02)
+                self.bus.i2c_rdwr(read_msg)
+                data = list(read_msg)
+            else:
+                self.bus.write_i2c_block_data(self.I2C_ADDR, 0xEC, [0x05])
+                time.sleep(0.02)
+                data = self.bus.read_i2c_block_data(self.I2C_ADDR, 0, 9)
+
+            co2 = (data[0] << 8) | data[1]
+            if 350 <= co2 <= 10000:
+                return float(co2)
+        except Exception:
+            pass
+        return None
+
+
+class SCD30Reader:
+    """Reads CO2 (ppm) from Sensirion SCD30 via I2C (0x61)."""
+    I2C_ADDR = 0x61
+
+    def __init__(self, bus: Optional[Any] = None):
+        self.bus = bus
+        self.started = False
+        if self.bus:
+            self._start_periodic()
+
+    def _start_periodic(self):
+        try:
+            # Command 0x0010: start_continuous_measurement
+            if hasattr(smbus2, "i2c_msg"):
+                msg = smbus2.i2c_msg.write(self.I2C_ADDR, [0x00, 0x10, 0x00, 0x00, 0x81])
+                self.bus.i2c_rdwr(msg)
+            else:
+                self.bus.write_i2c_block_data(self.I2C_ADDR, 0x00, [0x10, 0x00, 0x00, 0x81])
+            self.started = True
+        except Exception:
+            self.started = False
+
+    def read_co2(self) -> Optional[float]:
+        if not self.bus:
+            return None
+        if not self.started:
+            self._start_periodic()
+        try:
+            # Command 0x0300: read_measurement
+            if hasattr(smbus2, "i2c_msg"):
+                write_msg = smbus2.i2c_msg.write(self.I2C_ADDR, [0x03, 0x00])
+                read_msg = smbus2.i2c_msg.read(self.I2C_ADDR, 18)
+                self.bus.i2c_rdwr(write_msg)
+                time.sleep(0.02)
+                self.bus.i2c_rdwr(read_msg)
+                data = list(read_msg)
+                import struct
+                co2_bytes = bytes([data[0], data[1], data[3], data[4]])
+                co2_val = struct.unpack('>f', co2_bytes)[0]
+                if 350 <= co2_val <= 10000:
+                    return round(float(co2_val), 1)
+        except Exception:
+            pass
+        return None
+
+
+class EnvIVSensor:
+    """Unified interface for ENV sensors (SHT40 + BMP280 + CO2) on Raspberry Pi via Grove HAT."""
+
+    def __init__(self, i2c_bus_num: int = 1, enable_co2: bool = True, mock: bool = False):
         self.mock = mock or (not HAS_SMBUS)
         self.bus = None
         self.sht40 = None
         self.bmp280 = None
+        self.scd4x = None
+        self.scd30 = None
 
         if not self.mock:
             try:
                 self.bus = smbus2.SMBus(i2c_bus_num)
                 self.sht40 = SHT40Reader(self.bus)
                 self.bmp280 = BMP280Reader(self.bus)
-                print(f"🌡️ M5Stack ENV IV initialized on I2C Bus {i2c_bus_num}")
+                if enable_co2:
+                    self.scd4x = SCD4XReader(self.bus)
+                    self.scd30 = SCD30Reader(self.bus)
+                print(f"🌡️ Environmental sensors initialized on I2C Bus {i2c_bus_num} (CO2 detection enabled: {enable_co2})")
             except Exception as e:
                 print(f"⚠️ Failed to init I2C bus {i2c_bus_num} ({e}). Falling back to Mock mode.")
                 self.mock = True
 
     def read_all(self) -> Dict[str, float]:
-        """Returns dict with temperature_c, humidity_pct, and pressure_hpa."""
+        """Returns dict with temperature_c, humidity_pct, pressure_hpa, and co2_ppm (if available)."""
         if self.mock:
             import random
             return {
                 "temperature_c": round(24.0 + random.uniform(-0.8, 1.2), 2),
                 "humidity_pct": round(50.0 + random.uniform(-3.0, 3.0), 2),
-                "pressure_hpa": round(1013.25 + random.uniform(-1.0, 1.0), 2)
+                "pressure_hpa": round(1013.25 + random.uniform(-1.0, 1.0), 2),
+                "co2_ppm": round(550.0 + random.uniform(-20.0, 40.0), 1)
             }
 
         res = {}
@@ -200,5 +304,14 @@ class EnvIVSensor:
             pres = self.bmp280.read_pressure()
             if pres is not None:
                 res["pressure_hpa"] = pres
+
+        if self.scd4x:
+            co2 = self.scd4x.read_co2()
+            if co2 is not None:
+                res["co2_ppm"] = co2
+        if "co2_ppm" not in res and self.scd30:
+            co2 = self.scd30.read_co2()
+            if co2 is not None:
+                res["co2_ppm"] = co2
 
         return res
