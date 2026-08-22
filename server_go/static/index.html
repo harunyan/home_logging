@@ -508,6 +508,64 @@
       border-color: var(--accent-sky);
     }
 
+    .table-filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      background: rgba(15, 23, 42, 0.4);
+      padding: 10px 14px;
+      border-radius: 10px;
+      border: 1px solid var(--border-slate);
+      margin-bottom: 12px;
+    }
+
+    .filter-input {
+      background: rgba(30, 41, 59, 0.85);
+      color: var(--text-main);
+      border: 1px solid var(--border-slate);
+      padding: 6px 12px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      outline: none;
+      font-family: inherit;
+      min-width: 160px;
+      flex: 1;
+    }
+    .filter-input:focus {
+      border-color: var(--accent-sky);
+    }
+
+    .filter-select {
+      background: rgba(30, 41, 59, 0.85);
+      color: var(--text-main);
+      border: 1px solid var(--border-slate);
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 0.78rem;
+      outline: none;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .filter-select:focus {
+      border-color: var(--accent-sky);
+    }
+
+    .btn-reset-filter {
+      background: rgba(148, 163, 184, 0.1);
+      color: var(--text-dim);
+      border: 1px solid var(--border-slate);
+      padding: 5px 10px;
+      border-radius: 6px;
+      font-size: 0.74rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-reset-filter:hover {
+      background: rgba(148, 163, 184, 0.2);
+      color: var(--text-main);
+    }
+
     .table-footer {
       display: flex;
       justify-content: center;
@@ -740,6 +798,32 @@
               <option value="500">500件</option>
               <option value="all">全件表示</option>
             </select>
+          </div>
+        </div>
+
+        <!-- History Table Filters -->
+        <div class="table-filter-bar">
+          <div style="display: flex; align-items: center; gap: 6px; flex: 1; min-width: 180px;">
+            <span style="font-size: 0.82rem;">🔍</span>
+            <input type="text" id="filter-keyword" class="filter-input" placeholder="メモ・デバイス名・キーワードで検索..." oninput="handleFilterChange()">
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            <label style="font-size: 0.76rem; color: var(--text-muted);">デバイス:</label>
+            <select id="filter-device" class="filter-select" onchange="handleFilterChange()">
+              <option value="all">すべてのデバイス</option>
+            </select>
+
+            <label style="font-size: 0.76rem; color: var(--text-muted);">イベント種別:</label>
+            <select id="filter-event-type" class="filter-select" onchange="handleFilterChange()">
+              <option value="all">すべてのイベント</option>
+              <option value="meal_finished">🍽️ 食事完了 (meal_finished)</option>
+              <option value="food_level">🥣 定期残量 (food_level)</option>
+              <option value="refill">✨ フード補充 (refill)</option>
+              <option value="weight_measured">⚖️ 体重測定 (weight_measured)</option>
+              <option value="env_measured">🌡️ 環境計測 (env_measured)</option>
+            </select>
+
+            <button class="btn-reset-filter" onclick="resetTableFilters()" title="絞り込みをリセット">🔄 リセット</button>
           </div>
         </div>
         <div class="table-container" id="events-table-container">
@@ -976,6 +1060,7 @@
         updateSummary(sumRes);
         updateDevices(devRes.devices || []);
         rawEventsData = evRes.events || [];
+        updateDeviceFilterDropdown();
         renderEventsTable();
         renderChart();
         document.getElementById('refresh-status').textContent = '● 自動更新中 (1分)';
@@ -1343,17 +1428,97 @@
     let displayedCount = 50;
     const PAGE_CHUNK_SIZE = 50;
     let currentDisplayMode = 'auto'; // 'auto', '100', '300', '500', 'all'
+    let tableFilterKeyword = '';
+    let tableFilterDevice = 'all';
+    let tableFilterEventType = 'all';
 
     function handleDisplayCountChange(val) {
       currentDisplayMode = val;
       if (val === 'all') {
         displayedCount = rawEventsData.length;
       } else if (val === 'auto') {
-        displayedCount = Math.max(50, Math.min(displayedCount, rawEventsData.length));
+        displayedCount = 50;
       } else {
         displayedCount = parseInt(val, 10);
       }
       renderEventsTable();
+    }
+
+    function handleFilterChange() {
+      const kwInput = document.getElementById('filter-keyword');
+      const devSelect = document.getElementById('filter-device');
+      const typeSelect = document.getElementById('filter-event-type');
+
+      if (kwInput) tableFilterKeyword = kwInput.value;
+      if (devSelect) tableFilterDevice = devSelect.value;
+      if (typeSelect) tableFilterEventType = typeSelect.value;
+
+      displayedCount = 50; // reset pagination on filter change
+      renderEventsTable();
+    }
+
+    function resetTableFilters() {
+      tableFilterKeyword = '';
+      tableFilterDevice = 'all';
+      tableFilterEventType = 'all';
+
+      const kwInput = document.getElementById('filter-keyword');
+      const devSelect = document.getElementById('filter-device');
+      const typeSelect = document.getElementById('filter-event-type');
+
+      if (kwInput) kwInput.value = '';
+      if (devSelect) devSelect.value = 'all';
+      if (typeSelect) typeSelect.value = 'all';
+
+      displayedCount = 50;
+      renderEventsTable();
+    }
+
+    function updateDeviceFilterDropdown() {
+      const devSelect = document.getElementById('filter-device');
+      if (!devSelect || !rawEventsData) return;
+
+      const currentVal = devSelect.value || 'all';
+      const deviceMap = new Map();
+
+      rawEventsData.forEach(e => {
+        if (e.device_id && !deviceMap.has(e.device_id)) {
+          deviceMap.set(e.device_id, e.note || e.device_id);
+        }
+      });
+
+      let optionsHtml = '<option value="all">すべてのデバイス</option>';
+      deviceMap.forEach((note, devId) => {
+        const label = (note && note !== devId) ? `${devId} (${note})` : devId;
+        const selected = (currentVal === devId) ? 'selected' : '';
+        optionsHtml += `<option value="${escapeHtml(devId)}" ${selected}>${escapeHtml(label)}</option>`;
+      });
+
+      devSelect.innerHTML = optionsHtml;
+    }
+
+    function getFilteredTableEvents() {
+      return rawEventsData.filter(e => {
+        // 1. Device filter
+        if (tableFilterDevice !== 'all' && (e.device_id || 'default') !== tableFilterDevice) {
+          return false;
+        }
+        // 2. Event type filter
+        if (tableFilterEventType !== 'all' && e.event_type !== tableFilterEventType) {
+          return false;
+        }
+        // 3. Keyword filter (searches note, device_id, and event_type)
+        if (tableFilterKeyword && tableFilterKeyword.trim()) {
+          const q = tableFilterKeyword.trim().toLowerCase();
+          const noteStr = (e.note || '').toLowerCase();
+          const devStr = (e.device_id || '').toLowerCase();
+          const typeStr = (e.event_type || '').toLowerCase();
+          if (!noteStr.includes(q) && !devStr.includes(q) && !typeStr.includes(q)) {
+            return false;
+          }
+        }
+        return true;
+      });
     }
 
     function createTableRowHtml(e) {
@@ -1388,7 +1553,10 @@
 
       let envStr = '-';
       if (e.temperature_c !== undefined && e.temperature_c !== null) {
-        envStr = `${e.temperature_c.toFixed(1)}°C / ${e.humidity_pct ? e.humidity_pct.toFixed(0) + '%' : ''}`;
+        const tStr = `${e.temperature_c.toFixed(1)}°C`;
+        const hStr = e.humidity_pct ? `${e.humidity_pct.toFixed(0)}%` : '';
+        const cStr = (e.co2_ppm !== undefined && e.co2_ppm !== null) ? ` / 🍃 ${Number(e.co2_ppm).toFixed(0)}ppm` : '';
+        envStr = `${tStr} / ${hStr}${cStr}`;
       }
 
       return `
@@ -1408,19 +1576,30 @@
       const tbody = document.getElementById('events-tbody');
       const badge = document.getElementById('table-count-badge');
       const footerText = document.getElementById('table-footer-text');
-      const total = rawEventsData.length;
+      
+      const filteredEvents = getFilteredTableEvents();
+      const total = filteredEvents.length;
+      const allTotal = rawEventsData.length;
 
-      if (!rawEventsData || total === 0) {
+      if (!rawEventsData || allTotal === 0) {
         tbody.innerHTML = `<tr><td colspan="7" class="empty-state">データを受信していません。</td></tr>`;
         if (badge) badge.textContent = '0 件';
         if (footerText) footerText.textContent = 'データなし';
         return;
       }
 
-      const limit = (currentDisplayMode === 'all') ? total : Math.min(displayedCount, total);
-      if (badge) badge.textContent = `${limit} / ${total} 件`;
+      if (total === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" class="empty-state">🔍 条件に一致するログが見つかりませんでした。</td></tr>`;
+        if (badge) badge.textContent = `0 / ${allTotal} 件`;
+        if (footerText) footerText.textContent = '該当ログなし';
+        return;
+      }
 
-      const visibleEvents = rawEventsData.slice(0, limit);
+      const limit = (currentDisplayMode === 'all') ? total : Math.min(displayedCount, total);
+      const isFiltered = (total !== allTotal);
+      if (badge) badge.textContent = isFiltered ? `${limit} / ${total} 件 (絞り込み中)` : `${limit} / ${total} 件`;
+
+      const visibleEvents = filteredEvents.slice(0, limit);
       tbody.innerHTML = visibleEvents.map(e => createTableRowHtml(e)).join('');
 
       if (footerText) {
