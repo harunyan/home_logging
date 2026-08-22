@@ -23,12 +23,13 @@ CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
 class WinSVSender:
     """Handles HTTP POST requests to WinSV Go receiver with local offline buffer and automatic encryption."""
 
-    def __init__(self, server_url: str, queue_file: str = "offline_queue.json"):
+    def __init__(self, server_url: str, queue_file: str = "offline_queue.json", enable_encryption: bool = True):
         self.server_url = server_url.rstrip("/")
         self.endpoint = f"{self.server_url}/api/v1/events"
         self.queue_file = os.path.join(os.path.dirname(__file__), queue_file)
         self.queue: List[Dict[str, Any]] = self._load_queue()
-        self.crypto = CryptoClient(self.server_url)
+        self.enable_encryption = enable_encryption
+        self.crypto = CryptoClient(self.server_url) if enable_encryption else None
 
     def _load_queue(self) -> List[Dict[str, Any]]:
         if os.path.exists(self.queue_file):
@@ -59,8 +60,11 @@ class WinSVSender:
 
         for attempt in range(2):
             try:
-                # Encrypt payload with ephemeral X25519 + AES-256-GCM (no passwords needed)
-                post_data = self.crypto.encrypt_data(self.queue)
+                # Encrypt payload with ephemeral X25519 + AES-256-GCM if enabled
+                if self.enable_encryption and self.crypto:
+                    post_data = self.crypto.encrypt_data(self.queue)
+                else:
+                    post_data = self.queue
                 payload = json.dumps(post_data).encode("utf-8")
 
                 req = urllib.request.Request(
@@ -470,7 +474,8 @@ def main():
 
     sender = WinSVSender(
         server_url=cfg.get("server_url", "http://127.0.0.1:8080"),
-        queue_file=cfg.get("offline_queue_file", "offline_queue.json")
+        queue_file=cfg.get("offline_queue_file", "offline_queue.json"),
+        enable_encryption=cfg.get("enable_encryption", True)
     )
 
     # Initialize M5Stack ENV IV via Grove HAT (I2C)
