@@ -268,6 +268,7 @@ class MHZ19Reader:
         self.port = port
         self.baudrate = baudrate
         self.serial_inst = None
+        self.warned_permission = False
 
     def _get_serial(self):
         try:
@@ -282,7 +283,17 @@ class MHZ19Reader:
                     timeout=2.0
                 )
             return self.serial_inst
-        except Exception:
+        except PermissionError:
+            if not self.warned_permission:
+                print(f"⚠️ [MH-Z19] シリアルポート {self.port} へのアクセス権限がありません。")
+                print(f"💡 解決策: 'sudo usermod -aG dialout $USER' を実行して再ログインするか、'sudo chmod 666 {self.port}' を実行してください。")
+                self.warned_permission = True
+            return None
+        except Exception as e:
+            if not self.warned_permission and "Permission denied" in str(e):
+                print(f"⚠️ [MH-Z19] シリアルポート {self.port} へのアクセス権限がありません。")
+                print(f"💡 解決策: 'sudo usermod -aG dialout $USER' を実行して再ログインするか、'sudo chmod 666 {self.port}' を実行してください。")
+                self.warned_permission = True
             return None
 
     def read_co2(self) -> Optional[float]:
