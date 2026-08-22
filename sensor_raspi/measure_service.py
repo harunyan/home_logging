@@ -480,7 +480,6 @@ def main():
             i2c_bus_num=cfg.get("i2c_bus", 1),
             enable_co2=cfg.get("enable_co2", True),
             co2_type=cfg.get("co2_type", "auto"),
-            co2_port=cfg.get("co2_port", "/dev/serial0"),
             mock=cfg.get("mock_mode", False)
         )
 

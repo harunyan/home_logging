@@ -261,43 +261,13 @@ class SCD30Reader:
 
 class MHZ19Reader:
     """
-    Reads CO2 (ppm) from Winsen MH-Z19 / MH-Z19B / MH-Z19C NDIR sensor via UART Serial.
-    Works with Grove Base HAT UART port (/dev/serial0) or USB-UART converter.
+    Reads CO2 (ppm) using the `mh_z19` Python library.
+    Executes mh_z19.read() with retry loop exactly as in verified working script.
     """
-    def __init__(self, port: str = "/dev/serial0", baudrate: int = 9600):
-        self.port = port
-        self.baudrate = baudrate
-        self.serial_inst = None
-        self.warned_permission = False
-
-    def _get_serial(self):
-        try:
-            import serial  # type: ignore
-            if self.serial_inst is None or not self.serial_inst.is_open:
-                self.serial_inst = serial.Serial(
-                    port=self.port,
-                    baudrate=self.baudrate,
-                    bytesize=serial.EIGHTBITS,
-                    parity=serial.PARITY_NONE,
-                    stopbits=serial.STOPBITS_ONE,
-                    timeout=2.0
-                )
-            return self.serial_inst
-        except PermissionError:
-            if not self.warned_permission:
-                print(f"⚠️ [MH-Z19] シリアルポート {self.port} へのアクセス権限がありません。")
-                print(f"💡 解決策: 'sudo usermod -aG dialout $USER' を実行して再ログインするか、'sudo chmod 666 {self.port}' を実行してください。")
-                self.warned_permission = True
-            return None
-        except Exception as e:
-            if not self.warned_permission and "Permission denied" in str(e):
-                print(f"⚠️ [MH-Z19] シリアルポート {self.port} へのアクセス権限がありません。")
-                print(f"💡 解決策: 'sudo usermod -aG dialout $USER' を実行して再ログインするか、'sudo chmod 666 {self.port}' を実行してください。")
-                self.warned_permission = True
-            return None
+    def __init__(self):
+        pass
 
     def read_co2(self) -> Optional[float]:
-        # 1. First priority: Use mh_z19 library (same as user's verified working script)
         try:
             import mh_z19  # type: ignore
             for _ in range(5):
@@ -313,48 +283,13 @@ class MHZ19Reader:
         except Exception:
             pass
 
-        # 2. Second priority: Direct PySerial binary packet query (Command 0x86)
-        try:
-            import serial  # type: ignore
-            candidate_ports = [self.port, "/dev/serial0", "/dev/ttyAMA0", "/dev/ttyS0", "/dev/ttyUSB0"]
-            seen = set()
-            unique_ports = [p for p in candidate_ports if p and not (p in seen or seen.add(p))]
-
-            for p in unique_ports:
-                try:
-                    ser = serial.Serial(
-                        port=p,
-                        baudrate=self.baudrate,
-                        bytesize=serial.EIGHTBITS,
-                        parity=serial.PARITY_NONE,
-                        stopbits=serial.STOPBITS_ONE,
-                        timeout=1.5
-                    )
-                    ser.reset_input_buffer()
-                    cmd = b"\xff\x01\x86\x00\x00\x00\x00\x00\x79"
-                    ser.write(cmd)
-                    time.sleep(0.1)
-                    resp = ser.read(9)
-                    ser.close()
-                    if len(resp) == 9 and resp[0] == 0xff and resp[1] == 0x86:
-                        csum = (0xff - (sum(resp[1:8]) % 256) + 1) & 0xff
-                        if csum == resp[8]:
-                            co2 = (resp[2] << 8) | resp[3]
-                            if 350 <= co2 <= 10000:
-                                self.port = p  # Update to working port
-                                return float(co2)
-                except Exception:
-                    pass
-        except Exception:
-            pass
-
         return None
 
 
 class EnvIVSensor:
     """Unified interface for ENV sensors (SHT40 + BMP280 + MH-Z19/SCD4X CO2) on Raspberry Pi."""
 
-    def __init__(self, i2c_bus_num: int = 1, enable_co2: bool = True, co2_type: str = "auto", co2_port: str = "/dev/serial0", mock: bool = False):
+    def __init__(self, i2c_bus_num: int = 1, enable_co2: bool = True, co2_type: str = "auto", mock: bool = False):
         self.mock = mock or (not HAS_SMBUS)
         self.bus = None
         self.sht40 = None
@@ -370,12 +305,12 @@ class EnvIVSensor:
                 self.bmp280 = BMP280Reader(self.bus)
                 if enable_co2:
                     if co2_type in ("mhz19", "auto"):
-                        self.mhz19 = MHZ19Reader(port=co2_port)
+                        self.mhz19 = MHZ19Reader()
                     if co2_type in ("scd4x", "auto"):
                         self.scd4x = SCD4XReader(self.bus)
                     if co2_type in ("scd30", "auto"):
                         self.scd30 = SCD30Reader(self.bus)
-                print(f"🌡️ Environmental sensors initialized on I2C Bus {i2c_bus_num} (CO2 enabled: {enable_co2}, Port: {co2_port})")
+                print(f"🌡️ Environmental sensors initialized on I2C Bus {i2c_bus_num} (CO2 enabled: {enable_co2})")
             except Exception as e:
                 print(f"⚠️ Failed to init I2C bus {i2c_bus_num} ({e}). Falling back to Mock mode.")
                 self.mock = True
