@@ -1254,7 +1254,7 @@
         };
 
       } else if (currentTab === 'co2') {
-        const co2Devices = [...new Set(filtered.filter(e => e.co2_ppm !== null && e.co2_ppm !== undefined).map(e => e.device_id || 'default'))];
+        const co2Devices = [...new Set(filtered.filter(e => e.co2_ppm !== null && e.co2_ppm !== undefined && Number(e.co2_ppm) > 0).map(e => e.device_id || 'default'))];
         const colors = ['#34d399', '#38bdf8', '#fb923c', '#a78bfa'];
         const datasets = [];
 
@@ -1262,7 +1262,10 @@
           const c = colors[idx % colors.length];
           const devLabel = co2Devices.length > 1 ? `[${devId}] ` : '';
           const devEvents = filtered.filter(e => (e.device_id || 'default') === devId);
-          const cData = devEvents.map(e => ({ x: new Date(e.timestamp).getTime(), y: e.co2_ppm })).filter(pt => pt.y !== null && pt.y !== undefined && pt.y >= 350 && pt.y <= 10000);
+          const cData = devEvents
+            .filter(e => e.co2_ppm !== null && e.co2_ppm !== undefined)
+            .map(e => ({ x: new Date(e.timestamp).getTime(), y: Number(e.co2_ppm) }))
+            .filter(pt => !isNaN(pt.y) && pt.y >= 350 && pt.y <= 10000);
 
           if (cData.length > 0) {
             datasets.push({

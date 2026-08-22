@@ -62,7 +62,7 @@ $whereSql = empty($whereClauses) ? '' : 'WHERE ' . implode(' AND ', $whereClause
 
 // Fetch latest events
 $sql = "SELECT id, device_id, device_type, event_type, weight_g, delta_g,
-               temperature_c, humidity_pct, pressure_hpa, raw_value, note, timestamp, received_at
+               temperature_c, humidity_pct, pressure_hpa, co2_ppm, raw_value, note, timestamp, received_at
         FROM events
         {$whereSql}
         ORDER BY id DESC
@@ -72,6 +72,18 @@ $results = $db->query($sql);
 $events = [];
 
 while ($row = $results->fetchArray(SQLITE3_ASSOC)) {
+    if ($row['co2_ppm'] !== null) {
+        $row['co2_ppm'] = (float)$row['co2_ppm'];
+    }
+    if ($row['temperature_c'] !== null) {
+        $row['temperature_c'] = (float)$row['temperature_c'];
+    }
+    if ($row['humidity_pct'] !== null) {
+        $row['humidity_pct'] = (float)$row['humidity_pct'];
+    }
+    if ($row['pressure_hpa'] !== null) {
+        $row['pressure_hpa'] = (float)$row['pressure_hpa'];
+    }
     // Add backward-compatible fields for sample compatibility
     $row['weight_hx711'] = $row['weight_g'];
     $row['temperature']  = $row['temperature_c'];
