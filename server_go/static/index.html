@@ -683,6 +683,242 @@
       padding: 36px;
       color: var(--text-muted);
     }
+
+    /* ============================================================
+       Responsive Styles for Mobile / Smartphone (max-width: 768px)
+       ============================================================ */
+    @media (max-width: 768px) {
+      body {
+        padding: 12px 8px 32px;
+      }
+
+      .container {
+        padding: 0;
+      }
+
+      header {
+        margin-bottom: 14px;
+        padding-bottom: 12px;
+        gap: 10px;
+      }
+
+      .brand {
+        gap: 8px;
+      }
+
+      .brand-icon {
+        font-size: 1.6rem;
+      }
+
+      h1 {
+        font-size: 1.15rem;
+      }
+
+      .server-tag {
+        font-size: 0.65rem;
+        padding: 2px 6px;
+      }
+
+      .btn {
+        padding: 6px 12px;
+        font-size: 0.76rem;
+        border-radius: 6px;
+      }
+
+      /* Summary Grid: 2 columns on smartphone */
+      .summary-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+        margin-bottom: 16px;
+      }
+
+      .card {
+        padding: 12px 10px;
+        border-radius: 12px;
+      }
+
+      .card-title {
+        font-size: 0.72rem;
+        margin-bottom: 4px;
+      }
+
+      .card-value {
+        font-size: 1.35rem;
+        margin-bottom: 2px;
+      }
+
+      .card-subtext {
+        font-size: 0.66rem;
+      }
+
+      /* Multi-room card takes full width (2 cols) */
+      .card-env-multi {
+        grid-column: span 2 !important;
+      }
+
+      .env-chips-list {
+        gap: 5px;
+      }
+
+      .env-chip-row {
+        padding: 5px 8px;
+        gap: 4px;
+      }
+
+      .env-chip-name {
+        font-size: 0.74rem;
+      }
+
+      .env-chip-data {
+        font-size: 0.76rem;
+        gap: 6px;
+      }
+
+      /* Graph Section */
+      .graph-section {
+        padding: 12px 10px;
+        border-radius: 14px;
+        margin-bottom: 16px;
+      }
+
+      .graph-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      .tabs {
+        width: 100%;
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding: 3px;
+        gap: 3px;
+      }
+      .tabs::-webkit-scrollbar {
+        display: none;
+      }
+
+      .tab-btn {
+        padding: 6px 10px;
+        font-size: 0.76rem;
+        flex: 1;
+        text-align: center;
+        white-space: nowrap;
+      }
+
+      .range-selector {
+        width: 100%;
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        padding: 3px;
+        gap: 2px;
+      }
+      .range-selector::-webkit-scrollbar {
+        display: none;
+      }
+
+      .range-btn {
+        padding: 5px 8px;
+        font-size: 0.72rem;
+        flex: 1;
+        text-align: center;
+        white-space: nowrap;
+      }
+
+      .time-nav-bar {
+        padding: 6px 8px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+      }
+
+      .time-nav-controls {
+        width: 100%;
+        justify-content: space-between;
+      }
+
+      .nav-btn {
+        padding: 5px 8px;
+        font-size: 0.72rem;
+      }
+
+      .time-window-badge {
+        padding: 4px 8px;
+        font-size: 0.7rem;
+      }
+
+      .pan-hint {
+        justify-content: center;
+        font-size: 0.66rem;
+      }
+
+      .chart-container {
+        height: 260px;
+      }
+
+      /* Main Content Layout (Table + Devices stacked vertically) */
+      .main-content {
+        grid-template-columns: 1fr;
+        gap: 16px;
+      }
+
+      /* Table & Filters */
+      .table-header-bar {
+        margin-top: 16px;
+        margin-bottom: 8px;
+        gap: 6px;
+      }
+
+      .table-filter-bar {
+        padding: 8px 10px;
+        gap: 8px;
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .table-filter-bar > div {
+        width: 100% !important;
+        flex-wrap: wrap;
+      }
+
+      .filter-input {
+        width: 100%;
+        min-width: unset;
+        padding: 7px 10px;
+        font-size: 0.76rem;
+      }
+
+      .filter-select {
+        flex: 1;
+        min-width: 110px;
+        padding: 6px 8px;
+        font-size: 0.74rem;
+      }
+
+      .btn-reset-filter {
+        padding: 6px 10px;
+        font-size: 0.74rem;
+      }
+
+      .table-container {
+        max-height: 440px;
+        border-radius: 12px;
+      }
+
+      table {
+        font-size: 0.74rem;
+        min-width: 580px; /* 横スクロールで全列を綺麗に保持 */
+      }
+
+      th, td {
+        padding: 8px 10px;
+      }
+    }
   </style>
 </head>
 <body>
