@@ -430,11 +430,13 @@
       -webkit-backdrop-filter: blur(16px);
       border: 1px solid var(--border-slate);
       border-radius: 14px;
-      overflow: hidden;
       box-shadow: var(--card-shadow);
       max-height: 520px;
+      overflow-x: auto;
       overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
       scroll-behavior: smooth;
+      position: relative;
     }
 
     /* Custom Scrollbar for Table */
@@ -837,15 +839,19 @@
       .table-container {
         max-height: 440px;
         border-radius: 12px;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
       }
 
       table {
         font-size: 0.74rem;
-        min-width: 580px; /* 横スクロールで全列を綺麗に保持 */
+        min-width: 680px !important; /* スマホで全列を綺麗に横スクロール表示 */
+        width: 100%;
       }
 
       th, td {
         padding: 8px 10px;
+        white-space: nowrap; /* テキストの潰れ・不自然な改行を防止 */
       }
     }
   </style>
