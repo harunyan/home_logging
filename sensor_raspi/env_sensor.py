@@ -270,19 +270,25 @@ class MHZ19Reader:
     def read_co2(self) -> Optional[float]:
         try:
             import mh_z19  # type: ignore
-            for _ in range(5):
-                try:
-                    res = mh_z19.read()
-                    if isinstance(res, dict) and "co2" in res and res["co2"] is not None:
-                        co2_val = float(res["co2"])
-                        if 350 <= co2_val <= 10000:
-                            return co2_val
-                except Exception:
-                    pass
-                time.sleep(0.5)
-        except Exception:
-            pass
+        except ImportError as e:
+            print(f"⚠️ [MH-Z19] mh_z19 ライブラリがロードできません ({e})。'sudo pip3 install mh-z19' または 'pip3 install mh-z19' を実行してください。")
+            return None
 
+        last_err = None
+        for attempt in range(1, 6):
+            try:
+                res = mh_z19.read()
+                if isinstance(res, dict) and "co2" in res and res["co2"] is not None:
+                    co2_val = float(res["co2"])
+                    if 350 <= co2_val <= 10000:
+                        return co2_val
+                last_err = f"返却値が空または不正: {res}"
+            except Exception as e:
+                last_err = f"{type(e).__name__}: {e}"
+            time.sleep(0.5)
+
+        if last_err:
+            print(f"⚠️ [MH-Z19] CO2読み取り失敗 (5回試行): {last_err}")
         return None
 
 
