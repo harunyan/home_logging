@@ -1193,14 +1193,26 @@
           }
         });
 
+        // Calculate dynamic Y-axis max for CO2 (lower bound fixed at 400ppm)
+        const visibleCo2Values = visibleEvents
+          .map(e => (e.co2_ppm !== null && e.co2_ppm !== undefined) ? Number(e.co2_ppm) : null)
+          .filter(v => v !== null && !isNaN(v) && v >= 350 && v <= 10000);
+
+        let yMax = 1000;
+        if (visibleCo2Values.length > 0) {
+          const maxV = Math.max(...visibleCo2Values);
+          // Margin +60ppm and round up to clean 50ppm boundary
+          yMax = Math.max(800, Math.ceil((maxV + 60) / 50) * 50);
+        }
+
         cloudChart.data = { datasets };
         cloudChart.options.scales = {
           x: xAxisConfig,
           y: { 
+            min: 400, // センサー最低値 (下限 400ppm 固定)
+            max: yMax, // 表示範囲内の最大値に合わせて上限を自動可変
             title: { display: true, text: 'CO2濃度 (ppm)', color: '#34d399' }, 
-            grid: { color: 'rgba(148, 163, 184, 0.05)' },
-            suggestedMin: 400,
-            suggestedMax: 1500
+            grid: { color: 'rgba(148, 163, 184, 0.05)' }
           }
         };
 
