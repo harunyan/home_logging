@@ -5,7 +5,8 @@
   "server_url": "http://192.168.1.203:8080",
   "enable_env_iv": true,
   "enable_co2": true,
-  "i2c_bus": 1,
+  "co2_type": "mhz19",
+  "co2_port": "/dev/serial0",
   "env_interval_sec": 60,
-  "note": "リビング (ENV4 + CO2)"
+  "note": "リビング (ENV4 + MH-Z19)"
 }

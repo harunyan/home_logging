@@ -259,14 +259,74 @@ class SCD30Reader:
         return None
 
 
-class EnvIVSensor:
-    """Unified interface for ENV sensors (SHT40 + BMP280 + CO2) on Raspberry Pi via Grove HAT."""
+class MHZ19Reader:
+    """
+    Reads CO2 (ppm) from Winsen MH-Z19 / MH-Z19B / MH-Z19C NDIR sensor via UART Serial.
+    Works with Grove Base HAT UART port (/dev/serial0) or USB-UART converter.
+    """
+    def __init__(self, port: str = "/dev/serial0", baudrate: int = 9600):
+        self.port = port
+        self.baudrate = baudrate
+        self.serial_inst = None
 
-    def __init__(self, i2c_bus_num: int = 1, enable_co2: bool = True, mock: bool = False):
+    def _get_serial(self):
+        try:
+            import serial  # type: ignore
+            if self.serial_inst is None or not self.serial_inst.is_open:
+                self.serial_inst = serial.Serial(
+                    port=self.port,
+                    baudrate=self.baudrate,
+                    bytesize=serial.EIGHTBITS,
+                    parity=serial.PARITY_NONE,
+                    stopbits=serial.STOPBITS_ONE,
+                    timeout=2.0
+                )
+            return self.serial_inst
+        except Exception:
+            return None
+
+    def read_co2(self) -> Optional[float]:
+        # 1. PySerial direct binary packet query (Command 0x86)
+        try:
+            ser = self._get_serial()
+            if ser:
+                ser.reset_input_buffer()
+                cmd = b"\xff\x01\x86\x00\x00\x00\x00\x00\x79"
+                ser.write(cmd)
+                time.sleep(0.1)
+                resp = ser.read(9)
+                if len(resp) == 9 and resp[0] == 0xff and resp[1] == 0x86:
+                    csum = (0xff - (sum(resp[1:8]) % 256) + 1) & 0xff
+                    if csum == resp[8]:
+                        co2 = (resp[2] << 8) | resp[3]
+                        if 350 <= co2 <= 10000:
+                            return float(co2)
+        except Exception:
+            pass
+
+        # 2. Fallback to mh_z19 library if installed
+        try:
+            import mh_z19  # type: ignore
+            res = mh_z19.read(serial_console_untouched=True)
+            if isinstance(res, dict) and "co2" in res:
+                co2_val = float(res["co2"])
+                if 350 <= co2_val <= 10000:
+                    return co2_val
+        except Exception:
+            pass
+
+        return None
+
+
+class EnvIVSensor:
+    """Unified interface for ENV sensors (SHT40 + BMP280 + MH-Z19/SCD4X CO2) on Raspberry Pi."""
+
+    def __init__(self, i2c_bus_num: int = 1, enable_co2: bool = True, co2_type: str = "auto", co2_port: str = "/dev/serial0", mock: bool = False):
         self.mock = mock or (not HAS_SMBUS)
         self.bus = None
         self.sht40 = None
         self.bmp280 = None
+        self.mhz19 = None
         self.scd4x = None
         self.scd30 = None
 
@@ -276,9 +336,13 @@ class EnvIVSensor:
                 self.sht40 = SHT40Reader(self.bus)
                 self.bmp280 = BMP280Reader(self.bus)
                 if enable_co2:
-                    self.scd4x = SCD4XReader(self.bus)
-                    self.scd30 = SCD30Reader(self.bus)
-                print(f"🌡️ Environmental sensors initialized on I2C Bus {i2c_bus_num} (CO2 detection enabled: {enable_co2})")
+                    if co2_type in ("mhz19", "auto"):
+                        self.mhz19 = MHZ19Reader(port=co2_port)
+                    if co2_type in ("scd4x", "auto"):
+                        self.scd4x = SCD4XReader(self.bus)
+                    if co2_type in ("scd30", "auto"):
+                        self.scd30 = SCD30Reader(self.bus)
+                print(f"🌡️ Environmental sensors initialized on I2C Bus {i2c_bus_num} (CO2 enabled: {enable_co2}, Port: {co2_port})")
             except Exception as e:
                 print(f"⚠️ Failed to init I2C bus {i2c_bus_num} ({e}). Falling back to Mock mode.")
                 self.mock = True
@@ -305,10 +369,17 @@ class EnvIVSensor:
             if pres is not None:
                 res["pressure_hpa"] = pres
 
-        if self.scd4x:
+        # Prioritize MH-Z19 UART, then SCD4X / SCD30 I2C
+        if self.mhz19:
+            co2 = self.mhz19.read_co2()
+            if co2 is not None:
+                res["co2_ppm"] = co2
+
+        if "co2_ppm" not in res and self.scd4x:
             co2 = self.scd4x.read_co2()
             if co2 is not None:
                 res["co2_ppm"] = co2
+
         if "co2_ppm" not in res and self.scd30:
             co2 = self.scd30.read_co2()
             if co2 is not None:
