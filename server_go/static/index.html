@@ -185,6 +185,58 @@
     .val-emerald { color: var(--accent-emerald); }
     .val-violet { color: var(--accent-violet); }
 
+    .card-env-multi {
+      grid-column: span 2;
+    }
+    @media (max-width: 768px) {
+      .card-env-multi {
+        grid-column: span 1;
+      }
+    }
+    .env-chips-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-top: 2px;
+    }
+    .env-chip-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(15, 23, 42, 0.65);
+      padding: 6px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border-slate);
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .env-chip-name {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .env-chip-data {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+    }
+    .env-chip-temp {
+      font-weight: 700;
+      color: var(--accent-emerald);
+    }
+    .env-chip-hum {
+      color: var(--accent-sky);
+    }
+    .env-chip-press {
+      color: var(--accent-violet);
+      font-size: 0.74rem;
+    }
+
     /* Graph Section */
     .graph-section {
       background: var(--bg-card);
@@ -605,10 +657,12 @@
         <div class="card-value val-sky" id="sum-cat-weight">-- <span style="font-size: 0.95rem; font-weight: normal;">g</span></div>
         <div class="card-subtext" id="sum-cat-time">未測定</div>
       </div>
-      <div class="card">
+      <div class="card" id="card-env-wrapper">
         <div class="card-title"><span>室内環境 (ENV IV)</span> <span>🌡️</span></div>
-        <div class="card-value val-emerald" id="sum-env-temp">--.- <span style="font-size: 0.95rem; font-weight: normal;">°C</span></div>
-        <div class="card-subtext" id="sum-env-sub">湿度: --% / 気圧: -- hPa</div>
+        <div id="sum-env-container">
+          <div class="card-value val-emerald" id="sum-env-temp">--.- <span style="font-size: 0.95rem; font-weight: normal;">°C</span></div>
+          <div class="card-subtext" id="sum-env-sub">湿度: --% / 気圧: -- hPa</div>
+        </div>
       </div>
       <div class="card">
         <div class="card-title"><span>本日の食事回数</span> <span>🥣</span></div>
@@ -956,18 +1010,93 @@
       document.getElementById('sum-meals-count').innerHTML = `${s.today_meals_count} <span style="font-size: 0.95rem; font-weight: normal;">回</span>`;
       document.getElementById('sum-food-eaten').textContent = `食べた量: ${s.today_food_eaten_g.toFixed(1)}g`;
 
-      if (s.latest_temp_c !== undefined && s.latest_temp_c !== null) {
-        document.getElementById('sum-env-temp').innerHTML = `${s.latest_temp_c.toFixed(1)} <span style="font-size: 0.95rem; font-weight: normal;">°C</span>`;
+      // Multi-device environment support in summary card
+      const envContainer = document.getElementById('sum-env-container');
+      const envWrapper = document.getElementById('card-env-wrapper');
+
+      if (s.latest_envs && s.latest_envs.length > 1) {
+        envWrapper.classList.add('card-env-multi');
+        envContainer.innerHTML = `
+          <div class="env-chips-list">
+            ${s.latest_envs.map(env => {
+              const devName = env.note ? env.note : env.device_id;
+              const tempStr = env.temperature_c !== null && env.temperature_c !== undefined ? `${env.temperature_c.toFixed(1)}°C` : '--.-°C';
+              const humStr = env.humidity_pct !== null && env.humidity_pct !== undefined ? `${env.humidity_pct.toFixed(0)}%` : '--%';
+              const pressStr = env.pressure_hpa !== null && env.pressure_hpa !== undefined ? `${env.pressure_hpa.toFixed(0)}hPa` : '--hPa';
+              const dt = new Date(env.timestamp);
+              return `
+                <div class="env-chip-row">
+                  <span class="env-chip-name">📍 ${escapeHtml(devName)}</span>
+                  <div class="env-chip-data">
+                    <span class="env-chip-temp">${tempStr}</span>
+                    <span class="env-chip-hum">💧 ${humStr}</span>
+                    <span class="env-chip-press">⏱️ ${pressStr}</span>
+                  </div>
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `;
+      } else if (s.latest_temp_c !== undefined && s.latest_temp_c !== null) {
+        envWrapper.classList.remove('card-env-multi');
         const humStr = s.latest_humidity_pct !== undefined && s.latest_humidity_pct !== null ? `${s.latest_humidity_pct.toFixed(1)}%` : '--%';
         const pressStr = s.latest_pressure_hpa !== undefined && s.latest_pressure_hpa !== null ? `${s.latest_pressure_hpa.toFixed(0)} hPa` : '-- hPa';
-        document.getElementById('sum-env-sub').textContent = `湿度: ${humStr} / 気圧: ${pressStr}`;
+        let devLabel = '';
+        if (s.latest_envs && s.latest_envs.length === 1 && s.latest_envs[0].note) {
+          devLabel = ` (${s.latest_envs[0].note})`;
+        }
+        envContainer.innerHTML = `
+          <div class="card-value val-emerald">${s.latest_temp_c.toFixed(1)} <span style="font-size: 0.95rem; font-weight: normal;">°C</span></div>
+          <div class="card-subtext">湿度: ${humStr} / 気圧: ${pressStr}${escapeHtml(devLabel)}</div>
+        `;
       } else {
-        document.getElementById('sum-env-temp').innerHTML = `--.- <span style="font-size: 0.95rem; font-weight: normal;">°C</span>`;
-        document.getElementById('sum-env-sub').textContent = `湿度: --% / 気圧: -- hPa`;
+        envWrapper.classList.remove('card-env-multi');
+        envContainer.innerHTML = `
+          <div class="card-value val-emerald">--.- <span style="font-size: 0.95rem; font-weight: normal;">°C</span></div>
+          <div class="card-subtext">湿度: --% / 気圧: -- hPa</div>
+        `;
       }
 
       document.getElementById('sum-events-count').textContent = s.total_events_today;
       document.getElementById('sum-devices-count').innerHTML = `${s.active_devices_count} <span style="font-size: 0.95rem; font-weight: normal;">台</span>`;
+    }
+
+    function restoreStateFromUrlAndStorage() {
+      const params = new URLSearchParams(window.location.search);
+      const validRanges = [60, 180, 360, 1440, 10080, 0];
+      const validTabs = ['weight', 'env', 'pressure'];
+
+      const urlRange = params.get('range');
+      const savedRange = localStorage.getItem('cat_winsv_range');
+      if (urlRange !== null && validRanges.includes(Number(urlRange))) {
+        currentRangeMinutes = Number(urlRange);
+      } else if (savedRange !== null && validRanges.includes(Number(savedRange))) {
+        currentRangeMinutes = Number(savedRange);
+      }
+
+      const urlTab = params.get('tab');
+      const savedTab = localStorage.getItem('cat_winsv_tab');
+      if (urlTab && validTabs.includes(urlTab)) {
+        currentTab = urlTab;
+      } else if (savedTab && validTabs.includes(savedTab)) {
+        currentTab = savedTab;
+      }
+
+      // Sync active UI buttons
+      document.querySelectorAll('.range-btn').forEach(b => {
+        const id = `range-${currentRangeMinutes}`;
+        b.classList.toggle('active', b.id === id);
+      });
+      document.querySelectorAll('.tab-btn').forEach(b => {
+        b.classList.toggle('active', b.id === `tab-${currentTab}`);
+      });
+    }
+
+    function syncStateToUrlAndStorage() {
+      localStorage.setItem('cat_winsv_range', currentRangeMinutes);
+      localStorage.setItem('cat_winsv_tab', currentTab);
+      const newUrl = `${window.location.pathname}?range=${currentRangeMinutes}&tab=${currentTab}`;
+      window.history.replaceState(null, '', newUrl);
     }
 
     function switchGraphTab(tab) {
@@ -975,6 +1104,7 @@
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       const activeBtn = document.getElementById(`tab-${tab}`);
       if (activeBtn) activeBtn.classList.add('active');
+      syncStateToUrlAndStorage();
       renderChart();
     }
 
@@ -985,6 +1115,7 @@
       const id = `range-${minutes}`;
       const btn = document.getElementById(id);
       if (btn) btn.classList.add('active');
+      syncStateToUrlAndStorage();
       renderChart();
     }
 
@@ -1316,6 +1447,7 @@
         .replace(/'/g, '&#039;');
     }
 
+    restoreStateFromUrlAndStorage();
     initChart();
     setupTableInfiniteScroll();
     fetchData();

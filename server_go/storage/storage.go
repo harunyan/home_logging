@@ -303,5 +303,31 @@ func (s *Storage) GetSummary() models.SummaryStats {
 
 	summary.TodayFoodEatenG = float64(int(summary.TodayFoodEatenG*10+0.5)) / 10
 
+	// 3. Collect latest environment reading for each distinct device
+	latestEnvMap := make(map[string]models.EnvReading)
+	for _, ev := range s.memoryCache {
+		if ev.TemperatureC != nil || ev.HumidityPct != nil {
+			cur, exists := latestEnvMap[ev.DeviceID]
+			if !exists || ev.Timestamp.After(cur.Timestamp) {
+				latestEnvMap[ev.DeviceID] = models.EnvReading{
+					DeviceID:     ev.DeviceID,
+					TemperatureC: ev.TemperatureC,
+					HumidityPct:  ev.HumidityPct,
+					PressureHpa:  ev.PressureHpa,
+					Timestamp:    ev.Timestamp,
+					Note:         ev.Note,
+				}
+			}
+		}
+	}
+
+	for _, reading := range latestEnvMap {
+		summary.LatestEnvs = append(summary.LatestEnvs, reading)
+	}
+
+	sort.Slice(summary.LatestEnvs, func(i, j int) bool {
+		return summary.LatestEnvs[i].DeviceID < summary.LatestEnvs[j].DeviceID
+	})
+
 	return summary
 }

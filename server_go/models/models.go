@@ -60,8 +60,19 @@ type SummaryStats struct {
 	LatestWeightTime   time.Time `json:"latest_weight_time,omitempty"`
 	LatestTempC        *float64  `json:"latest_temp_c,omitempty"`
 	LatestHumidityPct  *float64  `json:"latest_humidity_pct,omitempty"`
-	LatestPressureHpa  *float64  `json:"latest_pressure_hpa,omitempty"`
-	LatestEnvTime      time.Time `json:"latest_env_time,omitempty"`
-	ActiveDevicesCount int       `json:"active_devices_count"`
+	LatestPressureHpa  *float64     `json:"latest_pressure_hpa,omitempty"`
+	LatestEnvTime      time.Time    `json:"latest_env_time,omitempty"`
+	LatestEnvs         []EnvReading `json:"latest_envs,omitempty"`
+	ActiveDevicesCount int          `json:"active_devices_count"`
+}
+
+// EnvReading represents a snapshot of temperature, humidity, and pressure for a specific device.
+type EnvReading struct {
+	DeviceID     string    `json:"device_id"`
+	TemperatureC *float64  `json:"temperature_c,omitempty"`
+	HumidityPct  *float64  `json:"humidity_pct,omitempty"`
+	PressureHpa  *float64  `json:"pressure_hpa,omitempty"`
+	Timestamp    time.Time `json:"timestamp"`
+	Note         string    `json:"note,omitempty"`
 }
 

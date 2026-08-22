@@ -147,7 +147,28 @@ if ($mealSessionCount === 0) {
     }
 }
 
-// Latest status (safeguarded against glitches)
+// Query latest environment for each distinct device (e.g. raspi4-feeder-01, raspizero-bedroom-01, etc.)
+$distinctDevicesSql = "SELECT DISTINCT device_id FROM events WHERE temperature_c IS NOT NULL AND temperature_c BETWEEN -20 AND 60;";
+$devRes = $db->query($distinctDevicesSql);
+$latestEnvs = [];
+
+while ($d = $devRes->fetchArray(SQLITE3_ASSOC)) {
+    $devId = $d['device_id'];
+    $escDevId = SQLite3::escapeString($devId);
+    $row = $db->querySingle("SELECT device_id, temperature_c, humidity_pct, pressure_hpa, timestamp, note FROM events WHERE device_id = '{$escDevId}' AND temperature_c IS NOT NULL AND temperature_c BETWEEN -20 AND 60 ORDER BY id DESC LIMIT 1;", true);
+    if ($row) {
+        $latestEnvs[] = [
+            'device_id'       => $row['device_id'],
+            'temperature_c'   => $row['temperature_c'] !== null ? (float)$row['temperature_c'] : null,
+            'humidity_pct'    => $row['humidity_pct'] !== null ? (float)$row['humidity_pct'] : null,
+            'pressure_hpa'    => $row['pressure_hpa'] !== null ? (float)$row['pressure_hpa'] : null,
+            'timestamp'       => $row['timestamp'],
+            'note'            => $row['note'] ?? ''
+        ];
+    }
+}
+
+// Global latest status (safeguarded against glitches)
 $latestFeeder = $db->querySingle("SELECT weight_g, timestamp FROM events WHERE (device_type = 'feeder' OR event_type = 'food_level') AND weight_g >= 0 AND weight_g <= 1000 ORDER BY id DESC LIMIT 1;", true);
 $latestScale  = $db->querySingle("SELECT weight_g, timestamp FROM events WHERE device_type = 'scale' AND weight_g >= 100 AND weight_g <= 20000 ORDER BY id DESC LIMIT 1;", true);
 $latestEnv    = $db->querySingle("SELECT temperature_c, humidity_pct, pressure_hpa, timestamp FROM events WHERE temperature_c IS NOT NULL AND temperature_c BETWEEN -20 AND 60 ORDER BY id DESC LIMIT 1;", true);
@@ -164,6 +185,7 @@ $response = [
         'latest_humidity_pct'  => $latestEnv['humidity_pct'] ?? null,
         'latest_pressure_hpa'  => $latestEnv['pressure_hpa'] ?? null,
         'latest_env_time'      => $latestEnv['timestamp'] ?? null,
+        'latest_envs'          => $latestEnvs,
         'today_meals_count'    => $mealSessionCount,
         'today_food_eaten_g'   => round($totalEatenG, 1),
         'total_events_today'   => (int)($summaryRow['total_events'] ?? 0),
