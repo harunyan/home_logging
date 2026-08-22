@@ -300,7 +300,7 @@ class MHZ19Reader:
         # 1. First priority: Use mh_z19 library (same as user's verified working script)
         try:
             import mh_z19  # type: ignore
-            for _ in range(3):
+            for _ in range(5):
                 try:
                     res = mh_z19.read()
                     if isinstance(res, dict) and "co2" in res and res["co2"] is not None:
@@ -310,34 +310,41 @@ class MHZ19Reader:
                 except Exception:
                     pass
                 time.sleep(0.5)
-        except PermissionError:
-            if not self.warned_permission:
-                print(f"⚠️ [MH-Z19] シリアルポート {self.port} へのアクセス権限がありません。")
-                print(f"💡 解決策: 'sudo usermod -aG dialout $USER' を実行して再ログインするか、'sudo chmod 666 {self.port}' を実行してください。")
-                self.warned_permission = True
-        except Exception as e:
-            if not self.warned_permission and "Permission denied" in str(e):
-                print(f"⚠️ [MH-Z19] シリアルポート {self.port} へのアクセス権限がありません。")
-                print(f"💡 解決策: 'sudo usermod -aG dialout $USER' を実行して再ログインするか、'sudo chmod 666 {self.port}' を実行してください。")
-                self.warned_permission = True
+        except Exception:
+            pass
 
-        # 2. Second priority: PySerial direct binary packet query (Command 0x86)
+        # 2. Second priority: Direct PySerial binary packet query (Command 0x86)
         try:
-            ser = self._get_serial()
-            if ser:
-                for _ in range(2):
+            import serial  # type: ignore
+            candidate_ports = [self.port, "/dev/serial0", "/dev/ttyAMA0", "/dev/ttyS0", "/dev/ttyUSB0"]
+            seen = set()
+            unique_ports = [p for p in candidate_ports if p and not (p in seen or seen.add(p))]
+
+            for p in unique_ports:
+                try:
+                    ser = serial.Serial(
+                        port=p,
+                        baudrate=self.baudrate,
+                        bytesize=serial.EIGHTBITS,
+                        parity=serial.PARITY_NONE,
+                        stopbits=serial.STOPBITS_ONE,
+                        timeout=1.5
+                    )
                     ser.reset_input_buffer()
                     cmd = b"\xff\x01\x86\x00\x00\x00\x00\x00\x79"
                     ser.write(cmd)
                     time.sleep(0.1)
                     resp = ser.read(9)
+                    ser.close()
                     if len(resp) == 9 and resp[0] == 0xff and resp[1] == 0x86:
                         csum = (0xff - (sum(resp[1:8]) % 256) + 1) & 0xff
                         if csum == resp[8]:
                             co2 = (resp[2] << 8) | resp[3]
                             if 350 <= co2 <= 10000:
+                                self.port = p  # Update to working port
                                 return float(co2)
-                    time.sleep(0.3)
+                except Exception:
+                    pass
         except Exception:
             pass
 
