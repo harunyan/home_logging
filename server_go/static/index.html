@@ -413,6 +413,71 @@
       gap: 4px;
     }
 
+    .chart-custom-legend {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 10px;
+      border: 1px solid var(--border-slate);
+    }
+
+    .legend-group-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .legend-group-title {
+      font-size: 0.74rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      min-width: 58px;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 0.76rem;
+      font-weight: 500;
+      cursor: pointer;
+      user-select: none;
+      transition: all 0.2s ease;
+      background: rgba(30, 41, 59, 0.75);
+      border: 1px solid var(--border-slate);
+      color: var(--text-main);
+    }
+
+    .legend-item:hover {
+      background: rgba(51, 65, 85, 0.9);
+      border-color: rgba(148, 163, 184, 0.4);
+      transform: translateY(-1px);
+    }
+
+    .legend-item.hidden {
+      opacity: 0.35;
+      text-decoration: line-through;
+      background: rgba(15, 23, 42, 0.3);
+      border-color: transparent;
+    }
+
+    .legend-color-box {
+      width: 10px;
+      height: 10px;
+      border-radius: 3px;
+      display: inline-block;
+      flex-shrink: 0;
+    }
+
     .chart-container {
       position: relative;
       height: 320px;
@@ -1016,6 +1081,9 @@
         </div>
       </div>
 
+      <!-- Interactive Custom Legend (Stacked for Env Temp / Humidity) -->
+      <div id="chart-custom-legend" class="chart-custom-legend"></div>
+
       <div class="chart-container">
         <canvas id="mainChart"></canvas>
       </div>
@@ -1129,7 +1197,7 @@
           maintainAspectRatio: false,
           interaction: { mode: 'index', intersect: false },
           plugins: {
-            legend: { position: 'top', labels: { boxWidth: 12, usePointStyle: true, color: '#94a3b8' } },
+            legend: { display: false },
             tooltip: {
               backgroundColor: 'rgba(15, 23, 42, 0.95)',
               titleColor: '#ffffff',
@@ -1518,7 +1586,8 @@
 
       } else if (currentTab === 'env') {
         const envDevices = [...new Set(filtered.filter(e => e.temperature_c !== null && e.temperature_c !== undefined).map(e => e.device_id || 'default'))];
-        const datasets = [];
+        const tempDatasets = [];
+        const humDatasets = [];
         const colors = [
           { temp: '#34d399', hum: '#38bdf8' }, // Emerald / Sky
           { temp: '#fb923c', hum: '#a78bfa' }, // Orange / Violet
@@ -1526,16 +1595,15 @@
           { temp: '#eab308', hum: '#818cf8' }  // Yellow / Indigo
         ];
 
+        // 1. Add all Temperature datasets first
         envDevices.forEach((devId, idx) => {
           const c = colors[idx % colors.length];
           const devLabel = envDevices.length > 1 ? `[${devId}] ` : '';
-
           const devEvents = filtered.filter(e => (e.device_id || 'default') === devId);
           const tData = devEvents.map(e => ({ x: new Date(e.timestamp).getTime(), y: e.temperature_c })).filter(pt => pt.y !== null && pt.y !== undefined && pt.y >= -20 && pt.y <= 60);
-          const hData = devEvents.map(e => ({ x: new Date(e.timestamp).getTime(), y: e.humidity_pct })).filter(pt => pt.y !== null && pt.y !== undefined && pt.y >= 0 && pt.y <= 100);
 
           if (tData.length > 0) {
-            datasets.push({
+            tempDatasets.push({
               label: `${devLabel}室温 (°C)`,
               data: tData,
               borderColor: c.temp,
@@ -1546,8 +1614,17 @@
               pointRadius: 2
             });
           }
+        });
+
+        // 2. Add all Humidity datasets next
+        envDevices.forEach((devId, idx) => {
+          const c = colors[idx % colors.length];
+          const devLabel = envDevices.length > 1 ? `[${devId}] ` : '';
+          const devEvents = filtered.filter(e => (e.device_id || 'default') === devId);
+          const hData = devEvents.map(e => ({ x: new Date(e.timestamp).getTime(), y: e.humidity_pct })).filter(pt => pt.y !== null && pt.y !== undefined && pt.y >= 0 && pt.y <= 100);
+
           if (hData.length > 0) {
-            datasets.push({
+            humDatasets.push({
               label: `${devLabel}湿度 (%)`,
               data: hData,
               borderColor: c.hum,
@@ -1561,7 +1638,7 @@
           }
         });
 
-        mainChart.data = { datasets };
+        mainChart.data = { datasets: [...tempDatasets, ...humDatasets] };
         mainChart.options.scales = {
           x: xAxisConfig,
           yTemp: {
@@ -1665,6 +1742,76 @@
       }
 
       mainChart.update();
+      updateCustomLegend();
+    }
+
+    function updateCustomLegend() {
+      const container = document.getElementById('chart-custom-legend');
+      if (!container || !mainChart) return;
+
+      const datasets = mainChart.data.datasets || [];
+      if (datasets.length === 0) {
+        container.style.display = 'none';
+        return;
+      }
+      container.style.display = 'flex';
+
+      if (currentTab === 'env') {
+        const tempItems = [];
+        const humItems = [];
+
+        datasets.forEach((ds, idx) => {
+          const isVisible = mainChart.isDatasetVisible(idx);
+          const isHum = (ds.yAxisID === 'yHum');
+          const isHiddenClass = isVisible ? '' : 'hidden';
+          const itemHtml = `
+            <div class="legend-item ${isHiddenClass}" onclick="toggleDataset(${idx})" title="クリックで線の表示/非表示を切り替え">
+              <span class="legend-color-box" style="background-color: ${ds.borderColor};"></span>
+              <span>${escapeHtml(ds.label)}</span>
+            </div>
+          `;
+          if (isHum) {
+            humItems.push(itemHtml);
+          } else {
+            tempItems.push(itemHtml);
+          }
+        });
+
+        container.innerHTML = `
+          <div class="legend-group-row">
+            <span class="legend-group-title">🌡️ 温度:</span>
+            ${tempItems.join('')}
+          </div>
+          <div class="legend-group-row">
+            <span class="legend-group-title">💧 湿度:</span>
+            ${humItems.join('')}
+          </div>
+        `;
+      } else {
+        const items = datasets.map((ds, idx) => {
+          const isVisible = mainChart.isDatasetVisible(idx);
+          const isHiddenClass = isVisible ? '' : 'hidden';
+          return `
+            <div class="legend-item ${isHiddenClass}" onclick="toggleDataset(${idx})" title="クリックで線の表示/非表示を切り替え">
+              <span class="legend-color-box" style="background-color: ${ds.borderColor};"></span>
+              <span>${escapeHtml(ds.label)}</span>
+            </div>
+          `;
+        });
+        container.innerHTML = `
+          <div class="legend-group-row">
+            ${items.join('')}
+          </div>
+        `;
+      }
+    }
+
+    function toggleDataset(index) {
+      if (!mainChart) return;
+      const isVisible = mainChart.isDatasetVisible(index);
+      mainChart.setDatasetVisibility(index, !isVisible);
+      mainChart.update();
+      updateCustomLegend();
     }
 
     let displayedCount = 50;
