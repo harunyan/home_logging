@@ -1087,6 +1087,25 @@
     let timeOffsetMs = 0; // 0 = Live, >0 = Looking at past
     let cloudEvents = [];
 
+    // Persistent set of dataset labels hidden by user
+    let hiddenDatasets = new Set();
+    try {
+      const savedHidden = localStorage.getItem('cat_cloud_hidden_datasets');
+      if (savedHidden) {
+        hiddenDatasets = new Set(JSON.parse(savedHidden));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    function saveHiddenDatasets() {
+      try {
+        localStorage.setItem('cat_cloud_hidden_datasets', JSON.stringify([...hiddenDatasets]));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.08)';
     Chart.defaults.font.family = "'Outfit', 'Noto Sans JP', sans-serif";
@@ -1648,6 +1667,17 @@
         };
       }
 
+      // Restore persisted hidden states for datasets
+      if (cloudChart.data && cloudChart.data.datasets) {
+        cloudChart.data.datasets.forEach((ds, idx) => {
+          if (hiddenDatasets.has(ds.label)) {
+            cloudChart.setDatasetVisibility(idx, false);
+          } else {
+            cloudChart.setDatasetVisibility(idx, true);
+          }
+        });
+      }
+
       cloudChart.update();
       updateCustomLegend();
     }
@@ -1715,8 +1745,20 @@
 
     function toggleDataset(index) {
       if (!cloudChart) return;
+      const ds = cloudChart.data.datasets[index];
+      if (!ds) return;
+
       const isVisible = cloudChart.isDatasetVisible(index);
-      cloudChart.setDatasetVisibility(index, !isVisible);
+      const nextVisible = !isVisible;
+      cloudChart.setDatasetVisibility(index, nextVisible);
+
+      if (!nextVisible) {
+        hiddenDatasets.add(ds.label);
+      } else {
+        hiddenDatasets.delete(ds.label);
+      }
+      saveHiddenDatasets();
+
       cloudChart.update();
       updateCustomLegend();
     }

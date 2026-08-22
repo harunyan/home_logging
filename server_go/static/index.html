@@ -1183,6 +1183,25 @@
     let timeOffsetMs = 0; // 0 = Live
     let rawEventsData = [];
 
+    // Persistent set of dataset labels hidden by user
+    let hiddenDatasets = new Set();
+    try {
+      const savedHidden = localStorage.getItem('cat_winsv_hidden_datasets');
+      if (savedHidden) {
+        hiddenDatasets = new Set(JSON.parse(savedHidden));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    function saveHiddenDatasets() {
+      try {
+        localStorage.setItem('cat_winsv_hidden_datasets', JSON.stringify([...hiddenDatasets]));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
     Chart.defaults.color = '#94a3b8';
     Chart.defaults.borderColor = 'rgba(148, 163, 184, 0.08)';
     Chart.defaults.font.family = "'Outfit', 'Noto Sans JP', sans-serif";
@@ -1741,6 +1760,17 @@
         };
       }
 
+      // Restore persisted hidden states for datasets
+      if (mainChart.data && mainChart.data.datasets) {
+        mainChart.data.datasets.forEach((ds, idx) => {
+          if (hiddenDatasets.has(ds.label)) {
+            mainChart.setDatasetVisibility(idx, false);
+          } else {
+            mainChart.setDatasetVisibility(idx, true);
+          }
+        });
+      }
+
       mainChart.update();
       updateCustomLegend();
     }
@@ -1808,8 +1838,20 @@
 
     function toggleDataset(index) {
       if (!mainChart) return;
+      const ds = mainChart.data.datasets[index];
+      if (!ds) return;
+
       const isVisible = mainChart.isDatasetVisible(index);
-      mainChart.setDatasetVisibility(index, !isVisible);
+      const nextVisible = !isVisible;
+      mainChart.setDatasetVisibility(index, nextVisible);
+
+      if (!nextVisible) {
+        hiddenDatasets.add(ds.label);
+      } else {
+        hiddenDatasets.delete(ds.label);
+      }
+      saveHiddenDatasets();
+
       mainChart.update();
       updateCustomLegend();
     }
