@@ -1104,6 +1104,14 @@
       } catch (e) {
         console.error(e);
       }
+    function getDeviceFriendlyName(devId) {
+      if (!devId) return '全体';
+      if (devId.includes('bedroom')) return '寝室';
+      if (devId.includes('living')) return 'リビング';
+      if (devId.includes('feeder')) return 'ケージ';
+      const found = cloudEvents.find(e => e.device_id === devId && e.note);
+      if (found && found.note) return found.note;
+      return devId;
     }
 
     Chart.defaults.color = '#94a3b8';
@@ -1635,24 +1643,32 @@
 
       } else if (currentTab === 'pressure') {
         const pressDevices = [...new Set(filtered.filter(e => e.pressure_hpa !== null && e.pressure_hpa !== undefined).map(e => e.device_id || 'default'))];
-        const colors = ['#a78bfa', '#38bdf8', '#34d399', '#fb923c'];
+        const devStyles = [
+          { color: '#a78bfa', dash: [], point: 'circle' },        // 寝室 (Violet 実線)
+          { color: '#34d399', dash: [4, 4], point: 'rectRot' },   // リビング (Emerald 破線)
+          { color: '#fb923c', dash: [2, 2], point: 'triangle' },  // ケージ (Orange 点線)
+          { color: '#38bdf8', dash: [6, 3], point: 'cross' }      // その他 (Sky 一点鎖線)
+        ];
         const datasets = [];
 
         pressDevices.forEach((devId, idx) => {
-          const c = colors[idx % colors.length];
-          const devLabel = pressDevices.length > 1 ? `[${devId}] ` : '';
+          const style = devStyles[idx % devStyles.length];
+          const friendlyName = getDeviceFriendlyName(devId);
+          const devLabel = `[${friendlyName}] `;
           const devEvents = filtered.filter(e => (e.device_id || 'default') === devId);
-          const pData = devEvents.map(e => ({ x: new Date(e.timestamp).getTime(), y: e.pressure_hpa })).filter(pt => pt.y !== null && pt.y >= 800 && pt.y <= 1200);
+          const pData = devEvents.map(e => ({ x: new Date(e.timestamp).getTime(), y: Number(e.pressure_hpa) })).filter(pt => !isNaN(pt.y) && pt.y >= 800 && pt.y <= 1200);
 
           if (pData.length > 0) {
             datasets.push({
               label: `${devLabel}気圧 (hPa)`,
               data: pData,
-              borderColor: c,
-              backgroundColor: c + '1a',
+              borderColor: style.color,
+              backgroundColor: style.color + '1a',
+              borderDash: style.dash,
+              pointStyle: style.point,
               tension: 0.3,
               borderWidth: 2,
-              pointRadius: 2
+              pointRadius: 3
             });
           }
         });
@@ -1667,7 +1683,7 @@
           const minV = Math.min(...visiblePressValues);
           const maxV = Math.max(...visiblePressValues);
           const center = (minV + maxV) / 2;
-          const span = Math.max(4, (maxV - minV) * 1.6); // Minimum 4hPa span
+          const span = Math.max(3, (maxV - minV) * 1.6); // Minimum 3hPa span
           pMin = Math.floor(center - span / 2);
           pMax = Math.ceil(center + span / 2);
         }
