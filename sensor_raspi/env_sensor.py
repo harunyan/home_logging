@@ -82,7 +82,7 @@ class SHT40Reader:
 
 
 class BMP280Reader:
-    """Reads atmospheric pressure from Bosch BMP280 via I2C (0x76 or 0x77)."""
+    """Reads atmospheric pressure from Bosch BMP280 / BME280 via I2C (0x76 or 0x77)."""
 
     def __init__(self, bus: Optional[Any] = None, addr: int = 0x76):
         self.bus = bus
@@ -93,47 +93,61 @@ class BMP280Reader:
             self._init_sensor()
 
     def _init_sensor(self):
-        try:
-            # Check Chip ID (0x58 for BMP280)
-            chip_id = self.bus.read_byte_data(self.addr, 0xD0)
-            if chip_id != 0x58:
-                # Try alternate address 0x77
-                if self.addr == 0x76:
-                    self.addr = 0x77
-                    chip_id = self.bus.read_byte_data(self.addr, 0xD0)
+        if not self.bus:
+            return
 
-            # Read calibration coefficients (0x88..0xA1)
-            b = self.bus.read_i2c_block_data(self.addr, 0x88, 24)
-            self.calib['dig_T1'] = b[1] << 8 | b[0]
-            self.calib['dig_T2'] = self._to_signed(b[3] << 8 | b[2])
-            self.calib['dig_T3'] = self._to_signed(b[5] << 8 | b[4])
-            self.calib['dig_P1'] = b[7] << 8 | b[6]
-            self.calib['dig_P2'] = self._to_signed(b[9] << 8 | b[8])
-            self.calib['dig_P3'] = self._to_signed(b[11] << 8 | b[10])
-            self.calib['dig_P4'] = self._to_signed(b[13] << 8 | b[12])
-            self.calib['dig_P5'] = self._to_signed(b[15] << 8 | b[14])
-            self.calib['dig_P6'] = self._to_signed(b[17] << 8 | b[16])
-            self.calib['dig_P7'] = self._to_signed(b[19] << 8 | b[18])
-            self.calib['dig_P8'] = self._to_signed(b[21] << 8 | b[20])
-            self.calib['dig_P9'] = self._to_signed(b[23] << 8 | b[22])
+        addrs = [self.addr, 0x76, 0x77]
+        seen = set()
+        unique_addrs = [a for a in addrs if not (a in seen or seen.add(a))]
 
-            # Normal mode, temp oversampling x1, pres oversampling x1
-            self.bus.write_byte_data(self.addr, 0xF4, 0x27)
-            self.initialized = True
-        except Exception:
-            self.initialized = False
+        for a in unique_addrs:
+            try:
+                # Read Chip ID (0xD0)
+                _chip_id = self.bus.read_byte_data(a, 0xD0)
+
+                # Read calibration coefficients (0x88..0xA1)
+                b = self.bus.read_i2c_block_data(a, 0x88, 24)
+                self.calib['dig_T1'] = b[1] << 8 | b[0]
+                self.calib['dig_T2'] = self._to_signed(b[3] << 8 | b[2])
+                self.calib['dig_T3'] = self._to_signed(b[5] << 8 | b[4])
+                self.calib['dig_P1'] = b[7] << 8 | b[6]
+                self.calib['dig_P2'] = self._to_signed(b[9] << 8 | b[8])
+                self.calib['dig_P3'] = self._to_signed(b[11] << 8 | b[10])
+                self.calib['dig_P4'] = self._to_signed(b[13] << 8 | b[12])
+                self.calib['dig_P5'] = self._to_signed(b[15] << 8 | b[14])
+                self.calib['dig_P6'] = self._to_signed(b[17] << 8 | b[16])
+                self.calib['dig_P7'] = self._to_signed(b[19] << 8 | b[18])
+                self.calib['dig_P8'] = self._to_signed(b[21] << 8 | b[20])
+                self.calib['dig_P9'] = self._to_signed(b[23] << 8 | b[22])
+
+                # Normal mode, temp oversampling x1, pres oversampling x1 (0x27)
+                self.bus.write_byte_data(a, 0xF4, 0x27)
+                self.addr = a
+                self.initialized = True
+                return
+            except Exception:
+                continue
+
+        self.initialized = False
 
     @staticmethod
     def _to_signed(val: int) -> int:
         return val - 65536 if val > 32767 else val
 
     def read_pressure(self) -> Optional[float]:
-        if not self.initialized or not self.bus:
+        if not self.bus:
             return None
+        if not self.initialized:
+            self._init_sensor()
+            if not self.initialized:
+                return None
         try:
             data = self.bus.read_i2c_block_data(self.addr, 0xF7, 6)
             raw_p = (data[0] << 12) | (data[1] << 4) | (data[2] >> 4)
             raw_t = (data[3] << 12) | (data[4] << 4) | (data[5] >> 4)
+
+            if raw_p == 0 or raw_p == 0x80000:
+                return None
 
             # Temp compensation to get t_fine
             c = self.calib
@@ -156,8 +170,12 @@ class BMP280Reader:
             p_v2 = p * c['dig_P8'] / 32768.0
             pressure_pa = p + (p_v1 + p_v2 + c['dig_P7']) / 16.0
 
-            return round(pressure_pa / 100.0, 2)  # Convert Pa to hPa
+            hpa = round(pressure_pa / 100.0, 2)
+            if 800 <= hpa <= 1200:
+                return hpa
+            return None
         except Exception:
+            self.initialized = False
             return None
 
 
