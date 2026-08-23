@@ -1657,10 +1657,27 @@
           }
         });
 
+        // Calculate dynamic Y-axis for Pressure (tight zoom for subtle variations)
+        const visiblePressValues = visibleEvents
+          .map(e => (e.pressure_hpa !== null && e.pressure_hpa !== undefined) ? Number(e.pressure_hpa) : null)
+          .filter(v => v !== null && !isNaN(v) && v >= 800 && v <= 1200);
+
+        let pMin = 990, pMax = 1030;
+        if (visiblePressValues.length > 0) {
+          const minV = Math.min(...visiblePressValues);
+          const maxV = Math.max(...visiblePressValues);
+          const center = (minV + maxV) / 2;
+          const span = Math.max(4, (maxV - minV) * 1.6); // Minimum 4hPa span
+          pMin = Math.floor(center - span / 2);
+          pMax = Math.ceil(center + span / 2);
+        }
+
         cloudChart.data = { datasets };
         cloudChart.options.scales = {
           x: xAxisConfig,
           y: { 
+            min: pMin,
+            max: pMax,
             title: { display: true, text: '気圧 (hPa)', color: '#a78bfa' }, 
             grid: { color: 'rgba(148, 163, 184, 0.05)' } 
           }

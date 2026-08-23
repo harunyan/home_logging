@@ -22,12 +22,21 @@ except Exception as e:
     print(f"❌ Failed to open I2C Bus 1: {e}")
     sys.exit(1)
 
-# 1. Test SHT40 (0x44)
+# 1. Test SHT40 (Temp/Humidity) at 0x44
 print("\n--- 1. SHT40 (Temp/Humidity) at 0x44 ---")
 try:
-    bus.write_byte(0x44, 0xFD)
-    time.sleep(0.02)
-    data = bus.read_i2c_block_data(0x44, 0, 6)
+    if hasattr(smbus2, "i2c_msg"):
+        write_msg = smbus2.i2c_msg.write(0x44, [0xFD])
+        bus.i2c_rdwr(write_msg)
+        time.sleep(0.02)
+        read_msg = smbus2.i2c_msg.read(0x44, 6)
+        bus.i2c_rdwr(read_msg)
+        data = list(read_msg)
+    else:
+        bus.write_byte(0x44, 0xFD)
+        time.sleep(0.02)
+        data = bus.read_i2c_block_data(0x44, 0, 6)
+
     raw_t = (data[0] << 8) | data[1]
     raw_h = (data[3] << 8) | data[4]
     t = -45.0 + 175.0 * (raw_t / 65535.0)
