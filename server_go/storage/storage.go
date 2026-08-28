@@ -225,82 +225,111 @@ func (s *Storage) GetDeviceStatuses() []models.DeviceStatus {
 	return devices
 }
 
-// GetSummary calculates high-level statistics for today.
-func (s *Storage) GetSummary() models.SummaryStats {
+// GetSummary calculates aggregate metrics for a specific date (defaults to today).
+func (s *Storage) GetSummary(targetDateStr string) models.SummaryStats {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	now := time.Now()
-	todayStart := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, now.Location())
+	targetDate := now
+	if targetDateStr != "" {
+		if parsed, err := time.ParseInLocation("2006-01-02", targetDateStr, now.Location()); err == nil {
+			targetDate = parsed
+		}
+	}
+
+	dayStart := time.Date(targetDate.Year(), targetDate.Month(), targetDate.Day(), 0, 0, 0, 0, targetDate.Location())
+	dayEnd := dayStart.Add(24 * time.Hour)
 
 	var summary models.SummaryStats
+	summary.TargetDate = dayStart.Format("2006-01-02")
 	summary.ActiveDevicesCount = len(s.deviceMap)
 
 	var lastMealTime time.Time
+	var mealSessions []models.MealSession
 
 	for _, ev := range s.memoryCache {
-		if ev.Timestamp.After(todayStart) {
+		// Filter events within the target day
+		if (ev.Timestamp.Equal(dayStart) || ev.Timestamp.After(dayStart)) && ev.Timestamp.Before(dayEnd) {
 			summary.TotalEventsToday++
 
 			if ev.EventType == "meal_finished" {
+				eaten := 0.0
+				if ev.DeltaG != nil && *ev.DeltaG < 0 && *ev.DeltaG >= -500 {
+					eaten = float64(int(-(*ev.DeltaG)*10+0.5)) / 10
+				}
+
 				if lastMealTime.IsZero() || ev.Timestamp.Sub(lastMealTime) > 3*time.Minute {
 					summary.TodayMealsCount++
+					mealSessions = append(mealSessions, models.MealSession{
+						Time:      ev.Timestamp.Format("15:04"),
+						Timestamp: ev.Timestamp,
+						EatenG:    eaten,
+						WeightG:   ev.WeightG,
+					})
+				} else {
+					if len(mealSessions) > 0 {
+						mealSessions[len(mealSessions)-1].EatenG = float64(int((mealSessions[len(mealSessions)-1].EatenG+eaten)*10+0.5)) / 10
+					}
 				}
-				if ev.DeltaG != nil && *ev.DeltaG < 0 {
-					summary.TodayFoodEatenG += -(*ev.DeltaG)
-				}
+				summary.TodayFoodEatenG += eaten
 				lastMealTime = ev.Timestamp
 			}
+		}
 
-			// 給餌器の餌残量 (重量測定イベント food_level / meal_finished / refill または WeightG > 0 のみ)
-			if (ev.EventType == "food_level" || ev.EventType == "meal_finished" || ev.EventType == "refill") || (ev.DeviceType == "feeder" && ev.EventType != "env_measured" && ev.WeightG > 0) {
-				if ev.Timestamp.After(summary.LatestFoodTime) {
-					summary.LatestFoodWeightG = ev.WeightG
-					summary.LatestFoodTime = ev.Timestamp
-				}
+		// Track latest values globally
+		if (ev.EventType == "food_level" || ev.EventType == "meal_finished" || ev.EventType == "refill") || (ev.DeviceType == "feeder" && ev.EventType != "env_measured" && ev.WeightG > 0) {
+			if ev.Timestamp.After(summary.LatestFoodTime) {
+				summary.LatestFoodWeightG = ev.WeightG
+				summary.LatestFoodTime = ev.Timestamp
 			}
+		}
 
-			// 猫の体重測定 (DeviceType が scale かつ 1000g 以上の場合のみ)
-			if ev.DeviceType == "scale" && ev.EventType == "weight_measured" && ev.WeightG >= 1000 {
-				if ev.Timestamp.After(summary.LatestWeightTime) {
-					summary.LatestCatWeightG = ev.WeightG
-					summary.LatestWeightTime = ev.Timestamp
-				}
+		if ev.DeviceType == "scale" && ev.EventType == "weight_measured" && ev.WeightG >= 1000 {
+			if ev.Timestamp.After(summary.LatestWeightTime) {
+				summary.LatestCatWeightG = ev.WeightG
+				summary.LatestWeightTime = ev.Timestamp
 			}
+		}
 
-			// Track latest environment reading
-			if ev.TemperatureC != nil || ev.HumidityPct != nil {
-				if ev.Timestamp.After(summary.LatestEnvTime) {
-					summary.LatestTempC = ev.TemperatureC
-					summary.LatestHumidityPct = ev.HumidityPct
-					summary.LatestPressureHpa = ev.PressureHpa
-					summary.LatestEnvTime = ev.Timestamp
-				}
+		if ev.TemperatureC != nil || ev.HumidityPct != nil {
+			if ev.Timestamp.After(summary.LatestEnvTime) {
+				summary.LatestTempC = ev.TemperatureC
+				summary.LatestHumidityPct = ev.HumidityPct
+				summary.LatestPressureHpa = ev.PressureHpa
+				summary.LatestEnvTime = ev.Timestamp
 			}
 		}
 	}
 
-	// 2. If no explicit meal_finished events recorded yet, analyze continuous food_level drops
+	// 2. If no explicit meal_finished events recorded, analyze continuous food_level drops
 	if summary.TodayMealsCount == 0 {
 		var prevWeight float64 = -1
 		var prevTime time.Time
 
 		for _, ev := range s.memoryCache {
-			if ev.Timestamp.After(todayStart) && (ev.DeviceType == "feeder" || ev.EventType == "food_level") && ev.WeightG > 0 && ev.WeightG <= 1000 {
+			if (ev.Timestamp.Equal(dayStart) || ev.Timestamp.After(dayStart)) && ev.Timestamp.Before(dayEnd) && (ev.DeviceType == "feeder" || ev.EventType == "food_level") && ev.WeightG > 0 && ev.WeightG <= 1000 {
 				if prevWeight >= 0 {
 					delta := ev.WeightG - prevWeight
 					if delta <= -1.8 && delta >= -35.0 {
+						eaten := float64(int(-delta*10+0.5)) / 10
 						if prevTime.IsZero() || ev.Timestamp.Sub(prevTime) > 3*time.Minute {
 							summary.TodayMealsCount++
+							mealSessions = append(mealSessions, models.MealSession{
+								Time:      ev.Timestamp.Format("15:04"),
+								Timestamp: ev.Timestamp,
+								EatenG:    eaten,
+								WeightG:   ev.WeightG,
+							})
+						} else {
+							if len(mealSessions) > 0 {
+								mealSessions[len(mealSessions)-1].EatenG = float64(int((mealSessions[len(mealSessions)-1].EatenG+eaten)*10+0.5)) / 10
+							}
 						}
-						summary.TodayFoodEatenG += -delta
+						summary.TodayFoodEatenG += eaten
 						prevTime = ev.Timestamp
 						prevWeight = ev.WeightG
-					} else if delta >= 15.0 {
-						// Refill
-						prevWeight = ev.WeightG
-					} else if delta > -0.8 && delta < 0.8 {
-						// Small drift
+					} else if delta >= 15.0 || (delta > -0.8 && delta < 0.8) {
 						prevWeight = ev.WeightG
 					}
 				} else {
@@ -311,6 +340,7 @@ func (s *Storage) GetSummary() models.SummaryStats {
 	}
 
 	summary.TodayFoodEatenG = float64(int(summary.TodayFoodEatenG*10+0.5)) / 10
+	summary.MealSessions = mealSessions
 
 	// 3. Collect latest environment reading for each distinct device
 	latestEnvMap := make(map[string]models.EnvReading)

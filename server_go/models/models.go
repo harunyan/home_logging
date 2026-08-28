@@ -50,21 +50,31 @@ type DeviceStatus struct {
 	IsOnline      bool      `json:"is_online"` // true if seen within last 10 minutes
 }
 
+// MealSession represents a single eating event session
+type MealSession struct {
+	Time      string    `json:"time"`
+	Timestamp time.Time `json:"timestamp"`
+	EatenG    float64   `json:"eaten_g"`
+	WeightG   float64   `json:"weight_g"`
+}
+
 // SummaryStats provides aggregate insights (e.g., today's feeding, weight, and environment).
 type SummaryStats struct {
-	TotalEventsToday   int       `json:"total_events_today"`
-	TodayMealsCount    int       `json:"today_meals_count"`
-	TodayFoodEatenG    float64   `json:"today_food_eaten_g"`
-	LatestFoodWeightG  float64   `json:"latest_food_weight_g"`
-	LatestFoodTime     time.Time `json:"latest_food_time,omitempty"`
-	LatestCatWeightG   float64   `json:"latest_cat_weight_g"`
-	LatestWeightTime   time.Time `json:"latest_weight_time,omitempty"`
-	LatestTempC        *float64  `json:"latest_temp_c,omitempty"`
-	LatestHumidityPct  *float64  `json:"latest_humidity_pct,omitempty"`
-	LatestPressureHpa  *float64     `json:"latest_pressure_hpa,omitempty"`
-	LatestEnvTime      time.Time    `json:"latest_env_time,omitempty"`
-	LatestEnvs         []EnvReading `json:"latest_envs,omitempty"`
-	ActiveDevicesCount int          `json:"active_devices_count"`
+	TargetDate         string        `json:"target_date"`
+	TotalEventsToday   int           `json:"total_events_today"`
+	TodayMealsCount    int           `json:"today_meals_count"`
+	TodayFoodEatenG    float64       `json:"today_food_eaten_g"`
+	MealSessions       []MealSession `json:"meal_sessions,omitempty"`
+	LatestFoodWeightG  float64       `json:"latest_food_weight_g"`
+	LatestFoodTime     time.Time     `json:"latest_food_time,omitempty"`
+	LatestCatWeightG   float64       `json:"latest_cat_weight_g"`
+	LatestWeightTime   time.Time     `json:"latest_weight_time,omitempty"`
+	LatestTempC        *float64      `json:"latest_temp_c,omitempty"`
+	LatestHumidityPct  *float64      `json:"latest_humidity_pct,omitempty"`
+	LatestPressureHpa  *float64      `json:"latest_pressure_hpa,omitempty"`
+	LatestEnvTime      time.Time     `json:"latest_env_time,omitempty"`
+	LatestEnvs         []EnvReading  `json:"latest_envs,omitempty"`
+	ActiveDevicesCount int           `json:"active_devices_count"`
 }
 
 // EnvReading represents a snapshot of temperature, humidity, and pressure for a specific device.

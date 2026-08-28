@@ -237,6 +237,82 @@
       font-size: 0.74rem;
     }
 
+    /* Meal Summary Date Navigator */
+    .card-meal-summary {
+      position: relative;
+    }
+    .meal-date-nav {
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .meal-nav-btn {
+      background: rgba(30, 41, 59, 0.85);
+      border: 1px solid var(--border-slate);
+      color: var(--text-muted);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 0.68rem;
+      cursor: pointer;
+      line-height: 1.2;
+      transition: all 0.2s;
+    }
+    .meal-nav-btn:hover:not(:disabled) {
+      background: rgba(56, 189, 248, 0.2);
+      color: #fff;
+      border-color: var(--accent-sky);
+    }
+    .meal-nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+    .meal-date-input {
+      background: rgba(15, 23, 42, 0.9);
+      border: 1px solid var(--border-slate);
+      color: var(--text-main);
+      border-radius: 4px;
+      padding: 1px 3px;
+      font-size: 0.68rem;
+      font-family: inherit;
+      cursor: pointer;
+      color-scheme: dark;
+    }
+    .meal-today-btn {
+      background: rgba(251, 146, 60, 0.15);
+      border: 1px solid rgba(251, 146, 60, 0.35);
+      color: var(--accent-orange);
+      border-radius: 4px;
+      padding: 1px 5px;
+      font-size: 0.68rem;
+      font-weight: 600;
+      cursor: pointer;
+      line-height: 1.2;
+      transition: all 0.2s;
+    }
+    .meal-today-btn:hover {
+      background: rgba(251, 146, 60, 0.25);
+    }
+    .meal-sessions-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 8px;
+      max-height: 52px;
+      overflow-y: auto;
+    }
+    .meal-session-chip {
+      background: rgba(251, 146, 60, 0.1);
+      border: 1px solid rgba(251, 146, 60, 0.25);
+      color: #fed7aa;
+      font-size: 0.68rem;
+      padding: 2px 6px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
     /* Graph Section */
     .graph-section {
       background: var(--bg-card);
@@ -958,10 +1034,19 @@
           <div class="card-subtext" id="sum-env-sub">湿度: --% / 気圧: -- hPa</div>
         </div>
       </div>
-      <div class="card">
-        <div class="card-title"><span>本日の食事回数</span> <span>🥣</span></div>
+      <div class="card card-meal-summary">
+        <div class="card-title">
+          <span id="meal-card-title">本日の食事</span>
+          <div class="meal-date-nav">
+            <button class="meal-nav-btn" onclick="changeMealDate(-1)" title="前日へ">◀</button>
+            <input type="date" id="meal-date-picker" class="meal-date-input" onchange="onMealDateChange(this.value)">
+            <button class="meal-nav-btn" id="btn-meal-next" onclick="changeMealDate(1)" title="翌日へ" disabled>▶</button>
+            <button class="meal-today-btn" onclick="resetMealDateToToday()" title="今日に戻る">今日</button>
+          </div>
+        </div>
         <div class="card-value val-orange" id="sum-meals-count">0 <span style="font-size: 0.95rem; font-weight: normal;">回</span></div>
         <div class="card-subtext" id="sum-food-eaten">食べた量: 0.0g</div>
+        <div id="meal-sessions-container" class="meal-sessions-container"></div>
       </div>
       <div class="card">
         <div class="card-title"><span>本日の総受信数</span> <span>📡</span></div>
@@ -1421,8 +1506,7 @@
         document.getElementById('sum-cat-time').textContent = `未測定`;
       }
 
-      document.getElementById('sum-meals-count').innerHTML = `${s.today_meals_count} <span style="font-size: 0.95rem; font-weight: normal;">回</span>`;
-      document.getElementById('sum-food-eaten').textContent = `食べた量: ${s.today_food_eaten_g}g`;
+      updateMealCard(s);
 
       // Multi-device environment support in summary card
       const envContainer = document.getElementById('sum-env-container');
@@ -1470,6 +1554,83 @@
       }
 
       document.getElementById('sum-events-count').textContent = s.total_events_today;
+    }
+
+    let selectedMealDate = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD in local time
+
+    function updateMealCard(s) {
+      if (!s) return;
+      const todayStr = new Date().toLocaleDateString('sv-SE');
+      const targetDate = s.target_date || todayStr;
+      selectedMealDate = targetDate;
+
+      const isToday = (targetDate === todayStr);
+      const titleElem = document.getElementById('meal-card-title');
+      if (titleElem) {
+        titleElem.textContent = isToday ? '本日の食事' : `${targetDate.slice(5).replace('-', '/')} の食事`;
+      }
+
+      const picker = document.getElementById('meal-date-picker');
+      if (picker) {
+        picker.value = targetDate;
+        picker.max = todayStr;
+      }
+
+      const btnNext = document.getElementById('btn-meal-next');
+      if (btnNext) {
+        btnNext.disabled = isToday;
+      }
+
+      document.getElementById('sum-meals-count').innerHTML = `${s.today_meals_count} <span style="font-size: 0.95rem; font-weight: normal;">回</span>`;
+      document.getElementById('sum-food-eaten').textContent = `食べた量: ${s.today_food_eaten_g}g`;
+
+      const container = document.getElementById('meal-sessions-container');
+      if (container) {
+        if (s.meal_sessions && s.meal_sessions.length > 0) {
+          container.innerHTML = s.meal_sessions.map((ms, idx) => `
+            <span class="meal-session-chip" title="測定: ${escapeHtml(ms.timestamp || '')}">
+              <span style="opacity:0.75;">#${idx + 1}</span> <span>${ms.time}</span> <strong style="color:var(--accent-orange);">${ms.eaten_g}g</strong>
+            </span>
+          `).join('');
+        } else {
+          container.innerHTML = '<span style="font-size:0.68rem; color:var(--text-muted); padding:2px 4px;">食事記録なし</span>';
+        }
+      }
+    }
+
+    async function fetchMealStatsForDate(dateStr) {
+      selectedMealDate = dateStr;
+      const picker = document.getElementById('meal-date-picker');
+      if (picker) picker.value = dateStr;
+
+      try {
+        const res = await fetch(`api/get_sensor.php?date=${dateStr}&limit=50`);
+        const data = await res.json();
+        if (data.status === 'success' && data.summary) {
+          updateMealCard(data.summary);
+        }
+      } catch (err) {
+        console.error('Fetch meal stats error:', err);
+      }
+    }
+
+    function changeMealDate(daysDelta) {
+      const parts = selectedMealDate.split('-').map(Number);
+      const d = new Date(parts[0], parts[1] - 1, parts[2]);
+      d.setDate(d.getDate() + daysDelta);
+      const nextDateStr = d.toLocaleDateString('sv-SE');
+      const todayStr = new Date().toLocaleDateString('sv-SE');
+      if (nextDateStr > todayStr) return; // Cannot select future date
+      fetchMealStatsForDate(nextDateStr);
+    }
+
+    function onMealDateChange(val) {
+      if (val) fetchMealStatsForDate(val);
+    }
+
+    function resetMealDateToToday() {
+      const todayStr = new Date().toLocaleDateString('sv-SE');
+      fetchMealStatsForDate(todayStr);
     }
 
     function restoreStateFromUrlAndStorage() {

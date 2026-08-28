@@ -129,8 +129,125 @@ while ($row = $results->fetchArray(SQLITE3_ASSOC)) {
     $events[] = $row;
 }
 
+// Target date for meal summary (defaults to today in JST)
+$targetDate = !empty($_GET['date']) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $_GET['date']) ? $_GET['date'] : date('Y-m-d');
+$todayDate  = date('Y-m-d');
+
+function calcDailyMealStats($db, $tDate) {
+    $start = "{$tDate} 00:00:00";
+    $end   = "{$tDate} 23:59:59";
+    $escStart = SQLite3::escapeString($start);
+    $escEnd   = SQLite3::escapeString($end);
+
+    $whereTime = "((timestamp >= '{$escStart}' AND timestamp <= '{$escEnd}') OR (received_at >= '{$escStart}' AND received_at <= '{$escEnd}'))";
+
+    // 1. Check explicit meal_finished events
+    $mealsSql = "SELECT id, timestamp, received_at, weight_g, delta_g, note FROM events WHERE event_type = 'meal_finished' AND {$whereTime} ORDER BY id ASC;";
+    $mealsRes = $db->query($mealsSql);
+    $mealSessionCount = 0;
+    $totalEatenG = 0;
+    $lastMealTime = 0;
+    $mealSessions = [];
+
+    while ($m = $mealsRes->fetchArray(SQLITE3_ASSOC)) {
+        $ts = strtotime($m['timestamp'] ?? $m['received_at']);
+        $eaten = (isset($m['delta_g']) && $m['delta_g'] < 0 && $m['delta_g'] >= -500) ? round(-$m['delta_g'], 1) : 0;
+        if ($lastMealTime === 0 || ($ts - $lastMealTime > 180)) { // 3 min debounce
+            $mealSessionCount++;
+            $mealSessions[] = [
+                'time'      => date('H:i', $ts),
+                'timestamp' => $m['timestamp'] ?? $m['received_at'],
+                'eaten_g'   => $eaten,
+                'weight_g'  => $m['weight_g'] !== null ? (float)$m['weight_g'] : null
+            ];
+        } else {
+            if (!empty($mealSessions)) {
+                $lastIdx = count($mealSessions) - 1;
+                $mealSessions[$lastIdx]['eaten_g'] = round($mealSessions[$lastIdx]['eaten_g'] + $eaten, 1);
+            }
+        }
+        $totalEatenG += $eaten;
+        $lastMealTime = $ts;
+    }
+
+    // 2. If no explicit meal_finished events, analyze food_level continuous changes
+    if ($mealSessionCount === 0) {
+        $timelineSql = "SELECT id, weight_g, timestamp, received_at FROM events WHERE (device_type = 'feeder' OR event_type = 'food_level') AND weight_g >= 0 AND weight_g <= 1000 AND {$whereTime} ORDER BY id ASC;";
+        $tRes = $db->query($timelineSql);
+        $prevWeight = null;
+        $prevTime = 0;
+
+        while ($r = $tRes->fetchArray(SQLITE3_ASSOC)) {
+            $w = (float)$r['weight_g'];
+            $ts = strtotime($r['timestamp'] ?? $r['received_at']);
+            
+            if ($prevWeight !== null) {
+                $delta = $w - $prevWeight;
+                if ($delta <= -1.8 && $delta >= -35.0) {
+                    $eaten = round(-$delta, 1);
+                    if ($prevTime === 0 || ($ts - $prevTime > 180)) {
+                        $mealSessionCount++;
+                        $mealSessions[] = [
+                            'time'      => date('H:i', $ts),
+                            'timestamp' => $r['timestamp'] ?? $r['received_at'],
+                            'eaten_g'   => $eaten,
+                            'weight_g'  => $w
+                        ];
+                    } else {
+                        if (!empty($mealSessions)) {
+                            $lastIdx = count($mealSessions) - 1;
+                            $mealSessions[$lastIdx]['eaten_g'] = round($mealSessions[$lastIdx]['eaten_g'] + $eaten, 1);
+                        }
+                    }
+                    $totalEatenG += $eaten;
+                    $prevTime = $ts;
+                    $prevWeight = $w;
+                } elseif ($delta >= 15.0 || abs($delta) < 0.8) {
+                    $prevWeight = $w;
+                }
+            } else {
+                $prevWeight = $w;
+            }
+        }
+    }
+
+    return [
+        'date'          => $tDate,
+        'meals_count'   => $mealSessionCount,
+        'food_eaten_g'  => round($totalEatenG, 1),
+        'meal_sessions' => $mealSessions
+    ];
+}
+
+// Calculate meal stats for the requested date
+$targetMealStats = calcDailyMealStats($db, $targetDate);
+
+// Calculate past 7 days meal summary for quick browsing
+$dailyMealsHistory = [];
+for ($i = 0; $i < 7; $i++) {
+    $dStr = date('Y-m-d', strtotime("-{$i} days"));
+    if ($dStr === $targetDate) {
+        $dailyMealsHistory[] = [
+            'date'         => $dStr,
+            'meals_count'  => $targetMealStats['meals_count'],
+            'food_eaten_g' => $targetMealStats['food_eaten_g'],
+            'is_selected'  => true,
+            'is_today'     => ($dStr === $todayDate)
+        ];
+    } else {
+        $stats = calcDailyMealStats($db, $dStr);
+        $dailyMealsHistory[] = [
+            'date'         => $dStr,
+            'meals_count'  => $stats['meals_count'],
+            'food_eaten_g' => $stats['food_eaten_g'],
+            'is_selected'  => false,
+            'is_today'     => ($dStr === $todayDate)
+        ];
+    }
+}
+
 // Calculate summary stats for today (with anomaly filtering)
-$todayStart = date('Y-m-d 00:00:00');
+$todayStart = "{$todayDate} 00:00:00";
 $todaySql = "SELECT COUNT(*) as total_events,
                     MAX(CASE WHEN device_type = 'feeder' AND weight_g >= 0 AND weight_g <= 1000 THEN weight_g END) as max_food,
                     MIN(CASE WHEN device_type = 'feeder' AND weight_g >= 0 AND weight_g <= 1000 THEN weight_g END) as min_food,
@@ -141,59 +258,6 @@ $todaySql = "SELECT COUNT(*) as total_events,
              FROM events WHERE timestamp >= '{$todayStart}' OR received_at >= '{$todayStart}';";
 
 $summaryRow = $db->querySingle($todaySql, true);
-
-// Intelligent meal session detection
-// 1. Check explicit meal_finished events
-$mealsSql = "SELECT timestamp, received_at, weight_g, delta_g FROM events WHERE event_type = 'meal_finished' AND (timestamp >= '{$todayStart}' OR received_at >= '{$todayStart}') ORDER BY id ASC;";
-$mealsRes = $db->query($mealsSql);
-$mealSessionCount = 0;
-$totalEatenG = 0;
-$lastMealTime = 0;
-
-while ($m = $mealsRes->fetchArray(SQLITE3_ASSOC)) {
-    $ts = strtotime($m['timestamp'] ?? $m['received_at']);
-    if ($lastMealTime === 0 || ($ts - $lastMealTime > 180)) { // 3 minutes debounce window
-        $mealSessionCount++;
-    }
-    if (isset($m['delta_g']) && $m['delta_g'] < 0 && $m['delta_g'] >= -500) {
-        $totalEatenG += -$m['delta_g'];
-    }
-    $lastMealTime = $ts;
-}
-
-// 2. If no explicit meal_finished events recorded yet, automatically analyze continuous food_level changes
-if ($mealSessionCount === 0) {
-    $timelineSql = "SELECT weight_g, timestamp, received_at FROM events WHERE (device_type = 'feeder' OR event_type = 'food_level') AND weight_g >= 0 AND weight_g <= 1000 AND (timestamp >= '{$todayStart}' OR received_at >= '{$todayStart}') ORDER BY id ASC;";
-    $tRes = $db->query($timelineSql);
-    $prevWeight = null;
-    $prevTime = 0;
-
-    while ($r = $tRes->fetchArray(SQLITE3_ASSOC)) {
-        $w = (float)$r['weight_g'];
-        $ts = strtotime($r['timestamp'] ?? $r['received_at']);
-        
-        if ($prevWeight !== null) {
-            $delta = $w - $prevWeight;
-            // A distinct drop between 1.8g and 35.0g is an eating session
-            if ($delta <= -1.8 && $delta >= -35.0) {
-                if ($prevTime === 0 || ($ts - $prevTime > 180)) {
-                    $mealSessionCount++;
-                }
-                $totalEatenG += -$delta;
-                $prevTime = $ts;
-                $prevWeight = $w;
-            } elseif ($delta >= 15.0) {
-                // Refill occurred, update baseline without counting as meal
-                $prevWeight = $w;
-            } elseif (abs($delta) < 0.8) {
-                // Small thermal drift, smoothly track baseline
-                $prevWeight = $w;
-            }
-        } else {
-            $prevWeight = $w;
-        }
-    }
-}
 
 // Query latest environment for each distinct device (e.g. raspi4-feeder-01, raspizero-bedroom-01, etc.)
 $distinctDevicesSql = "SELECT DISTINCT device_id FROM events WHERE temperature_c IS NOT NULL AND temperature_c BETWEEN -20 AND 60;";
@@ -234,9 +298,11 @@ $response = [
         'latest_humidity_pct'  => $latestEnv['humidity_pct'] ?? null,
         'latest_pressure_hpa'  => $latestEnv['pressure_hpa'] ?? null,
         'latest_env_time'      => $latestEnv['timestamp'] ?? null,
-        'latest_envs'          => $latestEnvs,
-        'today_meals_count'    => $mealSessionCount,
-        'today_food_eaten_g'   => round($totalEatenG, 1),
+        'target_date'          => $targetDate,
+        'today_meals_count'    => $targetMealStats['meals_count'],
+        'today_food_eaten_g'   => $targetMealStats['food_eaten_g'],
+        'meal_sessions'        => $targetMealStats['meal_sessions'],
+        'daily_meals_history'  => $dailyMealsHistory,
         'total_events_today'   => (int)($summaryRow['total_events'] ?? 0),
         'today_temp_range'     => [
             'min' => $summaryRow['min_temp'] ?? null,

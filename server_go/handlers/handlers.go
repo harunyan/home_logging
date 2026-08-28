@@ -242,7 +242,7 @@ func (h *Handler) HandleDevices(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// HandleSummary returns aggregate statistics for today.
+// HandleSummary returns aggregate statistics for today or a specific date.
 func (h *Handler) HandleSummary(w http.ResponseWriter, r *http.Request) {
 	enableCORS(w)
 	if r.Method == http.MethodOptions {
@@ -253,7 +253,8 @@ func (h *Handler) HandleSummary(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	summary := h.storage.GetSummary()
+	targetDate := r.URL.Query().Get("date")
+	summary := h.storage.GetSummary(targetDate)
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(summary)
 }
