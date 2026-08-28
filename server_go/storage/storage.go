@@ -342,7 +342,108 @@ func (s *Storage) GetSummary(targetDateStr string) models.SummaryStats {
 	summary.TodayFoodEatenG = float64(int(summary.TodayFoodEatenG*10+0.5)) / 10
 	summary.MealSessions = mealSessions
 
-	// 3. Collect latest environment reading for each distinct device
+	// 3. Generate past 14 days meal tiles for interactive grid display
+	dayNames := []string{"日", "月", "火", "水", "木", "金", "土"}
+	todayStr := now.Format("2006-01-02")
+	targetDayStr := dayStart.Format("2006-01-02")
+
+	for i := 0; i < 14; i++ {
+		tileDate := now.AddDate(0, 0, -i)
+		tileDateStart := time.Date(tileDate.Year(), tileDate.Month(), tileDate.Day(), 0, 0, 0, 0, tileDate.Location())
+		tileDateEnd := tileDateStart.Add(24 * time.Hour)
+		dStr := tileDateStart.Format("2006-01-02")
+		wName := dayNames[int(tileDateStart.Weekday())]
+
+		if dStr == targetDayStr {
+			summary.DailyMealsTiles = append(summary.DailyMealsTiles, models.DailyMealTile{
+				Date:         dStr,
+				DisplayDate:  tileDateStart.Format("01/02") + " (" + wName + ")",
+				DayOfWeek:    wName,
+				MealsCount:   summary.TodayMealsCount,
+				FoodEatenG:   summary.TodayFoodEatenG,
+				MealSessions: mealSessions,
+				IsToday:      (dStr == todayStr),
+				IsSelected:   true,
+			})
+		} else {
+			// Compute for tileDate
+			var tileMealsCount int
+			var tileFoodEatenG float64
+			var tileSessions []models.MealSession
+			var tileLastMealTime time.Time
+
+			for _, ev := range s.memoryCache {
+				if (ev.Timestamp.Equal(tileDateStart) || ev.Timestamp.After(tileDateStart)) && ev.Timestamp.Before(tileDateEnd) {
+					if ev.EventType == "meal_finished" {
+						eaten := 0.0
+						if ev.DeltaG != nil && *ev.DeltaG < 0 && *ev.DeltaG >= -500 {
+							eaten = float64(int(-(*ev.DeltaG)*10+0.5)) / 10
+						}
+
+						if tileLastMealTime.IsZero() || ev.Timestamp.Sub(tileLastMealTime) > 3*time.Minute {
+							tileMealsCount++
+							tileSessions = append(tileSessions, models.MealSession{
+								Time:      ev.Timestamp.Format("15:04"),
+								Timestamp: ev.Timestamp,
+								EatenG:    eaten,
+								WeightG:   ev.WeightG,
+							})
+						} else if len(tileSessions) > 0 {
+							tileSessions[len(tileSessions)-1].EatenG = float64(int((tileSessions[len(tileSessions)-1].EatenG+eaten)*10+0.5)) / 10
+						}
+						tileFoodEatenG += eaten
+						tileLastMealTime = ev.Timestamp
+					}
+				}
+			}
+
+			if tileMealsCount == 0 {
+				var prevW float64 = -1
+				var prevT time.Time
+				for _, ev := range s.memoryCache {
+					if (ev.Timestamp.Equal(tileDateStart) || ev.Timestamp.After(tileDateStart)) && ev.Timestamp.Before(tileDateEnd) && (ev.DeviceType == "feeder" || ev.EventType == "food_level") && ev.WeightG > 0 && ev.WeightG <= 1000 {
+						if prevW >= 0 {
+							delta := ev.WeightG - prevW
+							if delta <= -1.8 && delta >= -35.0 {
+								eaten := float64(int(-delta*10+0.5)) / 10
+								if prevT.IsZero() || ev.Timestamp.Sub(prevT) > 3*time.Minute {
+									tileMealsCount++
+									tileSessions = append(tileSessions, models.MealSession{
+										Time:      ev.Timestamp.Format("15:04"),
+										Timestamp: ev.Timestamp,
+										EatenG:    eaten,
+										WeightG:   ev.WeightG,
+									})
+								} else if len(tileSessions) > 0 {
+									tileSessions[len(tileSessions)-1].EatenG = float64(int((tileSessions[len(tileSessions)-1].EatenG+eaten)*10+0.5)) / 10
+								}
+								tileFoodEatenG += eaten
+								prevT = ev.Timestamp
+								prevW = ev.WeightG
+							} else if delta >= 15.0 || (delta > -0.8 && delta < 0.8) {
+								prevW = ev.WeightG
+							}
+						} else {
+							prevW = ev.WeightG
+						}
+					}
+				}
+			}
+
+			summary.DailyMealsTiles = append(summary.DailyMealsTiles, models.DailyMealTile{
+				Date:         dStr,
+				DisplayDate:  tileDateStart.Format("01/02") + " (" + wName + ")",
+				DayOfWeek:    wName,
+				MealsCount:   tileMealsCount,
+				FoodEatenG:   float64(int(tileFoodEatenG*10+0.5)) / 10,
+				MealSessions: tileSessions,
+				IsToday:      (dStr == todayStr),
+				IsSelected:   false,
+			})
+		}
+	}
+
+	// 4. Collect latest environment reading for each distinct device
 	latestEnvMap := make(map[string]models.EnvReading)
 	for _, ev := range s.memoryCache {
 		if ev.TemperatureC != nil || ev.HumidityPct != nil {

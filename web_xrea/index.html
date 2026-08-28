@@ -237,80 +237,195 @@
       font-size: 0.74rem;
     }
 
-    /* Meal Summary Date Navigator */
-    .card-meal-summary {
+    /* Clickable Card */
+    .card-clickable {
+      cursor: pointer;
       position: relative;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     }
-    .meal-date-nav {
+    .card-clickable:hover {
+      transform: translateY(-3px);
+      border-color: rgba(251, 146, 60, 0.5);
+      box-shadow: 0 8px 24px rgba(251, 146, 60, 0.15);
+    }
+    .card-action-badge {
+      font-size: 0.7rem;
+      background: rgba(251, 146, 60, 0.15);
+      color: var(--accent-orange);
+      border: 1px solid rgba(251, 146, 60, 0.35);
+      padding: 2px 7px;
+      border-radius: 6px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+    }
+    .card-clickable:hover .card-action-badge {
+      background: var(--accent-orange);
+      color: #0f172a;
+    }
+
+    /* Modal Backdrop & Dialog */
+    .modal-backdrop {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 9999;
       display: flex;
       align-items: center;
-      gap: 3px;
+      justify-content: center;
+      padding: 16px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.25s ease, visibility 0.25s ease;
     }
-    .meal-nav-btn {
-      background: rgba(30, 41, 59, 0.85);
+    .modal-backdrop.open {
+      opacity: 1;
+      visibility: visible;
+    }
+    .modal-content {
+      background: var(--bg-slate-900);
       border: 1px solid var(--border-slate);
-      color: var(--text-muted);
-      border-radius: 4px;
-      padding: 1px 5px;
-      font-size: 0.68rem;
-      cursor: pointer;
-      line-height: 1.2;
-      transition: all 0.2s;
-    }
-    .meal-nav-btn:hover:not(:disabled) {
-      background: rgba(56, 189, 248, 0.2);
-      color: #fff;
-      border-color: var(--accent-sky);
-    }
-    .meal-nav-btn:disabled {
-      opacity: 0.3;
-      cursor: not-allowed;
-    }
-    .meal-date-input {
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid var(--border-slate);
-      color: var(--text-main);
-      border-radius: 4px;
-      padding: 1px 3px;
-      font-size: 0.68rem;
-      font-family: inherit;
-      cursor: pointer;
-      color-scheme: dark;
-    }
-    .meal-today-btn {
-      background: rgba(251, 146, 60, 0.15);
-      border: 1px solid rgba(251, 146, 60, 0.35);
-      color: var(--accent-orange);
-      border-radius: 4px;
-      padding: 1px 5px;
-      font-size: 0.68rem;
-      font-weight: 600;
-      cursor: pointer;
-      line-height: 1.2;
-      transition: all 0.2s;
-    }
-    .meal-today-btn:hover {
-      background: rgba(251, 146, 60, 0.25);
-    }
-    .meal-sessions-container {
+      border-radius: 20px;
+      width: 100%;
+      max-width: 980px;
+      max-height: 85vh;
       display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      margin-top: 8px;
-      max-height: 52px;
+      flex-direction: column;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6);
+      animation: modalSlideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+      overflow: hidden;
+    }
+    @keyframes modalSlideUp {
+      from { transform: translateY(20px) scale(0.96); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    .modal-header {
+      padding: 16px 22px;
+      background: rgba(30, 41, 59, 0.6);
+      border-bottom: 1px solid var(--border-slate);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .modal-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .modal-subtitle {
+      font-size: 0.74rem;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+    .modal-close-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.6rem;
+      line-height: 1;
+      cursor: pointer;
+      padding: 4px 10px;
+      border-radius: 8px;
+      transition: all 0.2s;
+    }
+    .modal-close-btn:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    /* Tiles Grid */
+    .meals-tiles-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(215px, 1fr));
+      gap: 14px;
+    }
+    .meal-day-tile {
+      background: rgba(15, 23, 42, 0.65);
+      border: 1px solid var(--border-slate);
+      border-radius: 14px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: all 0.2s ease;
+    }
+    .meal-day-tile:hover {
+      border-color: rgba(251, 146, 60, 0.4);
+      background: rgba(30, 41, 59, 0.5);
+    }
+    .meal-day-tile.is-today {
+      border-color: var(--accent-orange);
+      background: rgba(251, 146, 60, 0.08);
+      box-shadow: 0 0 16px rgba(251, 146, 60, 0.15);
+    }
+    .tile-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+      padding-bottom: 8px;
+    }
+    .tile-date {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: #fff;
+    }
+    .tile-badge-today {
+      background: var(--accent-orange);
+      color: #0f172a;
+      font-size: 0.65rem;
+      font-weight: 800;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+    .tile-stats {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+    .tile-count {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: var(--accent-orange);
+      font-family: 'JetBrains Mono', monospace;
+    }
+    .tile-eaten {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: #fed7aa;
+    }
+    .tile-sessions-list {
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      padding: 6px 10px;
+      max-height: 110px;
       overflow-y: auto;
     }
-    .meal-session-chip {
-      background: rgba(251, 146, 60, 0.1);
-      border: 1px solid rgba(251, 146, 60, 0.25);
-      color: #fed7aa;
-      font-size: 0.68rem;
-      padding: 2px 6px;
-      border-radius: 4px;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
+    .tile-session-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.74rem;
+      color: var(--text-muted);
       font-family: 'JetBrains Mono', monospace;
+    }
+    .tile-session-eaten {
+      color: var(--accent-orange);
+      font-weight: 700;
     }
 
     /* Graph Section */
@@ -1034,19 +1149,13 @@
           <div class="card-subtext" id="sum-env-sub">湿度: --% / 気圧: -- hPa</div>
         </div>
       </div>
-      <div class="card card-meal-summary">
+      <div class="card card-clickable" onclick="openDailyMealsModal()" title="クリックして日別の食事履歴一覧（タイル表示）を開く">
         <div class="card-title">
-          <span id="meal-card-title">本日の食事</span>
-          <div class="meal-date-nav">
-            <button class="meal-nav-btn" onclick="changeMealDate(-1)" title="前日へ">◀</button>
-            <input type="date" id="meal-date-picker" class="meal-date-input" onchange="onMealDateChange(this.value)">
-            <button class="meal-nav-btn" id="btn-meal-next" onclick="changeMealDate(1)" title="翌日へ" disabled>▶</button>
-            <button class="meal-today-btn" onclick="resetMealDateToToday()" title="今日に戻る">今日</button>
-          </div>
+          <span>本日の食事回数</span>
+          <span class="card-action-badge">📋 日別一覧</span>
         </div>
         <div class="card-value val-orange" id="sum-meals-count">0 <span style="font-size: 0.95rem; font-weight: normal;">回</span></div>
         <div class="card-subtext" id="sum-food-eaten">食べた量: 0.0g</div>
-        <div id="meal-sessions-container" class="meal-sessions-container"></div>
       </div>
       <div class="card">
         <div class="card-title"><span>本日の総受信数</span> <span>📡</span></div>
@@ -1161,6 +1270,24 @@
       </table>
       <div class="table-footer" id="table-footer">
         <span id="table-footer-text" style="font-size: 0.76rem; color: var(--text-muted);">データなし</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily Meals Tiles Modal -->
+  <div id="meals-modal" class="modal-backdrop" onclick="closeDailyMealsModal(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🥣 日別 食事履歴タイル</span>
+          <span class="modal-subtitle">過去の日別食事回数・食べた量・詳細タイムライン</span>
+        </div>
+        <button class="modal-close-btn" onclick="closeDailyMealsModal()">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div id="meals-tiles-grid" class="meals-tiles-grid">
+          <!-- Dynamically populated meal day tiles -->
+        </div>
       </div>
     </div>
   </div>
@@ -1556,81 +1683,75 @@
       document.getElementById('sum-events-count').textContent = s.total_events_today;
     }
 
-    let selectedMealDate = new Date().toLocaleDateString('sv-SE'); // YYYY-MM-DD in local time
+    let cachedDailyMealsTiles = [];
 
     function updateMealCard(s) {
       if (!s) return;
-      const todayStr = new Date().toLocaleDateString('sv-SE');
-      const targetDate = s.target_date || todayStr;
-      selectedMealDate = targetDate;
-
-      const isToday = (targetDate === todayStr);
-      const titleElem = document.getElementById('meal-card-title');
-      if (titleElem) {
-        titleElem.textContent = isToday ? '本日の食事' : `${targetDate.slice(5).replace('-', '/')} の食事`;
-      }
-
-      const picker = document.getElementById('meal-date-picker');
-      if (picker) {
-        picker.value = targetDate;
-        picker.max = todayStr;
-      }
-
-      const btnNext = document.getElementById('btn-meal-next');
-      if (btnNext) {
-        btnNext.disabled = isToday;
-      }
-
       document.getElementById('sum-meals-count').innerHTML = `${s.today_meals_count} <span style="font-size: 0.95rem; font-weight: normal;">回</span>`;
       document.getElementById('sum-food-eaten').textContent = `食べた量: ${s.today_food_eaten_g}g`;
 
-      const container = document.getElementById('meal-sessions-container');
-      if (container) {
-        if (s.meal_sessions && s.meal_sessions.length > 0) {
-          container.innerHTML = s.meal_sessions.map((ms, idx) => `
-            <span class="meal-session-chip" title="測定: ${escapeHtml(ms.timestamp || '')}">
-              <span style="opacity:0.75;">#${idx + 1}</span> <span>${ms.time}</span> <strong style="color:var(--accent-orange);">${ms.eaten_g}g</strong>
-            </span>
+      if (s.daily_meals_tiles) {
+        cachedDailyMealsTiles = s.daily_meals_tiles;
+      }
+    }
+
+    function openDailyMealsModal() {
+      const modal = document.getElementById('meals-modal');
+      if (modal) {
+        modal.classList.add('open');
+        renderMealsTilesGrid();
+      }
+    }
+
+    function closeDailyMealsModal(e) {
+      if (e && e.target && e.target.closest && e.target.closest('.modal-content') && !e.target.classList.contains('modal-close-btn')) {
+        return;
+      }
+      const modal = document.getElementById('meals-modal');
+      if (modal) modal.classList.remove('open');
+    }
+
+    function renderMealsTilesGrid() {
+      const grid = document.getElementById('meals-tiles-grid');
+      if (!grid) return;
+
+      if (!cachedDailyMealsTiles || cachedDailyMealsTiles.length === 0) {
+        grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--text-muted);">食事履歴データを読み込み中...</div>';
+        return;
+      }
+
+      grid.innerHTML = cachedDailyMealsTiles.map(tile => {
+        const isTodayClass = tile.is_today ? 'is-today' : '';
+        const todayBadge = tile.is_today ? '<span class="tile-badge-today">今日</span>' : '';
+        
+        let sessionsHtml = '';
+        if (tile.meal_sessions && tile.meal_sessions.length > 0) {
+          sessionsHtml = tile.meal_sessions.map((ms, idx) => `
+            <div class="tile-session-row">
+              <span>#${idx + 1} ${ms.time}</span>
+              <span class="tile-session-eaten">${Number(ms.eaten_g).toFixed(1)}g</span>
+            </div>
           `).join('');
         } else {
-          container.innerHTML = '<span style="font-size:0.68rem; color:var(--text-muted); padding:2px 4px;">食事記録なし</span>';
+          sessionsHtml = '<div style="text-align:center; font-size:0.72rem; color:var(--text-muted); padding:4px;">食事記録なし</div>';
         }
-      }
-    }
 
-    async function fetchMealStatsForDate(dateStr) {
-      selectedMealDate = dateStr;
-      const picker = document.getElementById('meal-date-picker');
-      if (picker) picker.value = dateStr;
-
-      try {
-        const res = await fetch(`api/get_sensor.php?date=${dateStr}&limit=50`);
-        const data = await res.json();
-        if (data.status === 'success' && data.summary) {
-          updateMealCard(data.summary);
-        }
-      } catch (err) {
-        console.error('Fetch meal stats error:', err);
-      }
-    }
-
-    function changeMealDate(daysDelta) {
-      const parts = selectedMealDate.split('-').map(Number);
-      const d = new Date(parts[0], parts[1] - 1, parts[2]);
-      d.setDate(d.getDate() + daysDelta);
-      const nextDateStr = d.toLocaleDateString('sv-SE');
-      const todayStr = new Date().toLocaleDateString('sv-SE');
-      if (nextDateStr > todayStr) return; // Cannot select future date
-      fetchMealStatsForDate(nextDateStr);
-    }
-
-    function onMealDateChange(val) {
-      if (val) fetchMealStatsForDate(val);
-    }
-
-    function resetMealDateToToday() {
-      const todayStr = new Date().toLocaleDateString('sv-SE');
-      fetchMealStatsForDate(todayStr);
+        return `
+          <div class="meal-day-tile ${isTodayClass}">
+            <div class="tile-header">
+              <span class="tile-date">📅 ${escapeHtml(tile.display_date)}</span>
+              ${todayBadge}
+            </div>
+            <div class="tile-stats">
+              <div class="tile-count">${tile.meals_count}<span style="font-size:0.75rem; font-weight:normal; margin-left:2px;">回</span></div>
+              <div class="tile-eaten">${Number(tile.food_eaten_g).toFixed(1)} g</div>
+            </div>
+            <div class="tile-sessions-list">
+              ${sessionsHtml}
+            </div>
+          </div>
+        `;
+      }).join('');
     }
 
     function restoreStateFromUrlAndStorage() {

@@ -222,28 +222,28 @@ function calcDailyMealStats($db, $tDate) {
 // Calculate meal stats for the requested date
 $targetMealStats = calcDailyMealStats($db, $targetDate);
 
-// Calculate past 7 days meal summary for quick browsing
-$dailyMealsHistory = [];
-for ($i = 0; $i < 7; $i++) {
-    $dStr = date('Y-m-d', strtotime("-{$i} days"));
-    if ($dStr === $targetDate) {
-        $dailyMealsHistory[] = [
-            'date'         => $dStr,
-            'meals_count'  => $targetMealStats['meals_count'],
-            'food_eaten_g' => $targetMealStats['food_eaten_g'],
-            'is_selected'  => true,
-            'is_today'     => ($dStr === $todayDate)
-        ];
-    } else {
-        $stats = calcDailyMealStats($db, $dStr);
-        $dailyMealsHistory[] = [
-            'date'         => $dStr,
-            'meals_count'  => $stats['meals_count'],
-            'food_eaten_g' => $stats['food_eaten_g'],
-            'is_selected'  => false,
-            'is_today'     => ($dStr === $todayDate)
-        ];
-    }
+// Calculate past 14 days meal tiles for interactive grid display
+$historyDays = isset($_GET['meal_days']) ? min(30, max(1, (int)$_GET['meal_days'])) : 14;
+$dailyMealsTiles = [];
+$dayNames = ['日', '月', '火', '水', '木', '金', '土'];
+
+for ($i = 0; $i < $historyDays; $i++) {
+    $timeSec = strtotime("-{$i} days");
+    $dStr = date('Y-m-d', $timeSec);
+    $wIndex = (int)date('w', $timeSec);
+    $wName = $dayNames[$wIndex];
+    
+    $stats = ($dStr === $targetDate) ? $targetMealStats : calcDailyMealStats($db, $dStr);
+    $dailyMealsTiles[] = [
+        'date'          => $dStr,
+        'display_date'  => date('m/d', $timeSec) . " ({$wName})",
+        'day_of_week'   => $wName,
+        'meals_count'   => $stats['meals_count'],
+        'food_eaten_g'  => $stats['food_eaten_g'],
+        'meal_sessions' => $stats['meal_sessions'],
+        'is_today'      => ($dStr === $todayDate),
+        'is_selected'   => ($dStr === $targetDate)
+    ];
 }
 
 // Calculate summary stats for today (with anomaly filtering)
@@ -302,7 +302,7 @@ $response = [
         'today_meals_count'    => $targetMealStats['meals_count'],
         'today_food_eaten_g'   => $targetMealStats['food_eaten_g'],
         'meal_sessions'        => $targetMealStats['meal_sessions'],
-        'daily_meals_history'  => $dailyMealsHistory,
+        'daily_meals_tiles'    => $dailyMealsTiles,
         'total_events_today'   => (int)($summaryRow['total_events'] ?? 0),
         'today_temp_range'     => [
             'min' => $summaryRow['min_temp'] ?? null,
