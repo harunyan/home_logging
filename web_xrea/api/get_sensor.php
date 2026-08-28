@@ -72,10 +72,33 @@ $sql = "SELECT id, device_id, device_type, event_type, weight_g, delta_g,
         ORDER BY id DESC
         LIMIT {$limit};";
 
+// Determine downsampling interval (in seconds) for long ranges
+$sampleIntervalSec = 0;
+if (isset($_GET['step'])) {
+    $sampleIntervalSec = max(0, (int)$_GET['step']);
+} elseif ($range === '7d') {
+    $sampleIntervalSec = 300; // 5分間隔に間引き (7日間で約2500点/デバイス -> 爆速描画)
+} elseif ($range === 'all') {
+    $sampleIntervalSec = 900; // 15分間隔に間引き
+}
+
 $results = $db->query($sql);
 $events = [];
+$lastSampleTimeByDevice = [];
 
 while ($row = $results->fetchArray(SQLITE3_ASSOC)) {
+    $isImportantEvent = in_array($row['event_type'], ['meal_finished', 'refill', 'weight_measured']);
+    $dev = $row['device_id'] ?? 'default';
+    $t = strtotime($row['timestamp'] ?? $row['received_at'] ?? 'now');
+
+    if ($sampleIntervalSec > 0 && !$isImportantEvent && isset($lastSampleTimeByDevice[$dev])) {
+        // Skip routine points within sample interval
+        if (abs($lastSampleTimeByDevice[$dev] - $t) < $sampleIntervalSec) {
+            continue;
+        }
+    }
+    $lastSampleTimeByDevice[$dev] = $t;
+
     if ($row['co2_ppm'] !== null) {
         $row['co2_ppm'] = (float)$row['co2_ppm'];
     }
