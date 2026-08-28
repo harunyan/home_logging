@@ -1187,6 +1187,7 @@
       timeOffsetMs = Math.max(0, now - maxTime);
       updateTimeNavUI(minTime, maxTime);
       updateYScaleForVisibleRange(minTime, maxTime);
+      checkAndFetchOlderData(minTime);
     }
 
     function updateTimeNavUI(minTime, maxTime) {
@@ -1215,6 +1216,73 @@
       }
     }
 
+    let isFetchingOlderData = false;
+    let hasReachedBeginningOfData = false;
+
+    async function checkAndFetchOlderData(neededMinTime) {
+      if (isFetchingOlderData || hasReachedBeginningOfData || cloudEvents.length === 0 || !neededMinTime) return;
+
+      let oldestTime = Infinity;
+      let oldestId = Infinity;
+      cloudEvents.forEach(e => {
+        const t = new Date(e.timestamp || e.received_at).getTime();
+        if (!isNaN(t) && t < oldestTime) oldestTime = t;
+        if (e.id && e.id < oldestId) oldestId = e.id;
+      });
+
+      // If the visible minTime is close to or older than our oldest cached data
+      const duration = getRangeDurationMs(currentRange);
+      const marginMs = duration * 0.3;
+      if (neededMinTime - marginMs <= oldestTime) {
+        await fetchOlderData(oldestId, oldestTime);
+      }
+    }
+
+    async function fetchOlderData(beforeId, beforeTimeMs) {
+      if (isFetchingOlderData || hasReachedBeginningOfData) return;
+      isFetchingOlderData = true;
+
+      const liveIndicator = document.getElementById('live-indicator');
+      const prevIndicatorText = liveIndicator ? liveIndicator.textContent : '';
+      if (liveIndicator) {
+        liveIndicator.textContent = '⏳ 過去データ取得中...';
+      }
+
+      try {
+        const iso = new Date(beforeTimeMs).toISOString();
+        const stepParam = currentRange === '7d' ? '&step=300' : (currentRange === 'all' ? '&step=900' : '');
+        const url = `api/get_sensor.php?before_timestamp=${encodeURIComponent(iso)}&limit=4000${stepParam}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.status === 'success' && data.events && data.events.length > 0) {
+          const existingIds = new Set(cloudEvents.map(e => e.id));
+          const newEvents = data.events.filter(e => !existingIds.has(e.id));
+
+          if (newEvents.length === 0) {
+            hasReachedBeginningOfData = true;
+          } else {
+            cloudEvents = [...cloudEvents, ...newEvents];
+            cloudEvents.sort((a, b) => {
+              const ta = new Date(a.timestamp || a.received_at).getTime();
+              const tb = new Date(b.timestamp || b.received_at).getTime();
+              return tb - ta;
+            });
+            renderChart();
+          }
+        } else {
+          hasReachedBeginningOfData = true;
+        }
+      } catch (err) {
+        console.error('Fetch older data error:', err);
+      } finally {
+        isFetchingOlderData = false;
+        if (liveIndicator) {
+          liveIndicator.textContent = prevIndicatorText || (timeOffsetMs <= 60000 ? '● LIVE' : '⏱️ 過去');
+        }
+      }
+    }
+
     function panTimeStep(direction) {
       if (currentRange === 'all') return;
       const stepMs = getRangeDurationMs(currentRange) * 0.5; // step by half duration
@@ -1228,6 +1296,9 @@
       }
 
       renderChart();
+      const duration = getRangeDurationMs(currentRange);
+      const minTime = Date.now() - timeOffsetMs - duration;
+      checkAndFetchOlderData(minTime);
     }
 
     function resetToLive() {

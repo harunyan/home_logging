@@ -23,6 +23,9 @@ $defaultLimit = 6000; // default covers >24h (approx 4320 events for 3 devices)
 if ($range === '7d' || $range === 'all') {
     $defaultLimit = 40000; // 7 days = approx 30240 events for 3 devices
 }
+$beforeId = isset($_GET['before_id']) ? (int)$_GET['before_id'] : 0;
+$beforeTimestamp = $_GET['before_timestamp'] ?? '';
+
 $limit = isset($_GET['limit']) ? min(50000, max(1, (int)$_GET['limit'])) : $defaultLimit;
 $deviceId = $_GET['device_id'] ?? '';
 $eventType = $_GET['event_type'] ?? '';
@@ -43,7 +46,13 @@ if (!empty($eventType)) {
 // Ignore physical glitch anomalies in timeline queries (Feeder: 0-1000g, Scale: 0-25000g)
 $whereClauses[] = "(weight_g IS NULL OR (weight_g >= 0 AND weight_g <= 25000 AND NOT ((device_type = 'feeder' OR event_type = 'food_level') AND weight_g > 1000)))";
 
-if (!empty($range) && $range !== 'all') {
+// Auto-paging support (fetching events older than a specific ID or timestamp)
+if ($beforeId > 0) {
+    $whereClauses[] = "id < " . $beforeId;
+} elseif (!empty($beforeTimestamp)) {
+    $tsEsc = SQLite3::escapeString($beforeTimestamp);
+    $whereClauses[] = "(timestamp < '{$tsEsc}' OR received_at < '{$tsEsc}')";
+} elseif (!empty($range) && $range !== 'all') {
     $seconds = 0;
     switch ($range) {
         case '1h':  $seconds = 3600; break;

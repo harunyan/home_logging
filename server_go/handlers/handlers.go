@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"home_logging_server/models"
 	"home_logging_server/relay"
@@ -199,10 +200,19 @@ func (h *Handler) handleGetEvents(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	var beforeTime *time.Time
+	if btStr := query.Get("before_timestamp"); btStr != "" {
+		if parsed, err := time.Parse(time.RFC3339, btStr); err == nil {
+			beforeTime = &parsed
+		}
+	}
+
 	filter := storage.QueryFilter{
-		DeviceID:  query.Get("device_id"),
-		EventType: query.Get("event_type"),
-		Limit:     limit,
+		DeviceID:   query.Get("device_id"),
+		EventType:  query.Get("event_type"),
+		Limit:      limit,
+		BeforeID:   query.Get("before_id"),
+		BeforeTime: beforeTime,
 	}
 
 	events := h.storage.QueryEvents(filter)

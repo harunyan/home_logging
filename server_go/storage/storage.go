@@ -157,10 +157,13 @@ func (s *Storage) updateDeviceStatusUnlocked(ev models.LogEvent) {
 }
 
 // QueryFilter parameters for querying events
+// QueryFilter parameters for querying events
 type QueryFilter struct {
-	DeviceID  string
-	EventType string
-	Limit     int
+	DeviceID   string
+	EventType  string
+	Limit      int
+	BeforeID   string
+	BeforeTime *time.Time
 }
 
 // QueryEvents returns events matching criteria in reverse chronological order.
@@ -170,14 +173,20 @@ func (s *Storage) QueryEvents(filter QueryFilter) []models.LogEvent {
 
 	var result []models.LogEvent
 	limit := filter.Limit
-	if limit <= 0 || limit > 1000 {
+	if limit <= 0 {
 		limit = 100
+	}
+	if limit > 50000 {
+		limit = 50000
 	}
 
 	// Traverse backwards (newest first)
 	for i := len(s.memoryCache) - 1; i >= 0; i-- {
 		ev := s.memoryCache[i]
 
+		if filter.BeforeTime != nil && !ev.Timestamp.Before(*filter.BeforeTime) {
+			continue
+		}
 		if filter.DeviceID != "" && ev.DeviceID != filter.DeviceID {
 			continue
 		}

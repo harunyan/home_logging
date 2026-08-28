@@ -1274,6 +1274,71 @@
       timeOffsetMs = Math.max(0, now - maxTime);
       updateTimeNavUI(minTime, maxTime);
       updateYScaleForVisibleRange(minTime, maxTime);
+      checkAndFetchOlderData(minTime);
+    }
+
+    let isFetchingOlderData = false;
+    let hasReachedBeginningOfData = false;
+
+    async function checkAndFetchOlderData(neededMinTime) {
+      if (isFetchingOlderData || hasReachedBeginningOfData || rawEventsData.length === 0 || !neededMinTime) return;
+
+      let oldestTime = Infinity;
+      let oldestId = Infinity;
+      rawEventsData.forEach(e => {
+        const t = new Date(e.timestamp).getTime();
+        if (!isNaN(t) && t < oldestTime) oldestTime = t;
+        if (e.id && e.id < oldestId) oldestId = e.id;
+      });
+
+      const duration = (currentRangeMinutes > 0 ? currentRangeMinutes : 1440) * 60 * 1000;
+      const marginMs = duration * 0.3;
+      if (neededMinTime - marginMs <= oldestTime) {
+        await fetchOlderData(oldestId, oldestTime);
+      }
+    }
+
+    async function fetchOlderData(beforeId, beforeTimeMs) {
+      if (isFetchingOlderData || hasReachedBeginningOfData) return;
+      isFetchingOlderData = true;
+
+      const liveIndicator = document.getElementById('live-indicator');
+      const prevIndicatorText = liveIndicator ? liveIndicator.textContent : '';
+      if (liveIndicator) {
+        liveIndicator.textContent = '⏳ 過去データ取得中...';
+      }
+
+      try {
+        const url = `/api/v1/events?limit=4000&before_id=${beforeId}`;
+        const res = await fetch(url);
+        const data = await res.json();
+
+        if (data.events && data.events.length > 0) {
+          const existingIds = new Set(rawEventsData.map(e => e.id));
+          const newEvents = data.events.filter(e => !existingIds.has(e.id));
+
+          if (newEvents.length === 0) {
+            hasReachedBeginningOfData = true;
+          } else {
+            rawEventsData = [...rawEventsData, ...newEvents];
+            rawEventsData.sort((a, b) => {
+              const ta = new Date(a.timestamp).getTime();
+              const tb = new Date(b.timestamp).getTime();
+              return tb - ta;
+            });
+            renderChart();
+          }
+        } else {
+          hasReachedBeginningOfData = true;
+        }
+      } catch (err) {
+        console.error('Fetch older data error:', err);
+      } finally {
+        isFetchingOlderData = false;
+        if (liveIndicator) {
+          liveIndicator.textContent = prevIndicatorText || (timeOffsetMs <= 60000 ? '● LIVE' : '⏱️ 過去');
+        }
+      }
     }
 
     function updateTimeNavUI(minTime, maxTime) {
@@ -1312,6 +1377,9 @@
       }
 
       renderChart();
+      const duration = (currentRangeMinutes > 0 ? currentRangeMinutes : 1440) * 60 * 1000;
+      const minTime = Date.now() - timeOffsetMs - duration;
+      checkAndFetchOlderData(minTime);
     }
 
     function resetToLive() {
