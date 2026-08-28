@@ -19,11 +19,11 @@ require_once __DIR__ . '/config.php';
 $db = get_db_connection();
 
 $range = $_GET['range'] ?? ''; // '1h', '3h', '6h', '24h', '7d', 'all'
-$defaultLimit = 5000;
+$defaultLimit = 6000; // default covers >24h (approx 4320 events for 3 devices)
 if ($range === '7d' || $range === 'all') {
-    $defaultLimit = 10000;
+    $defaultLimit = 40000; // 7 days = approx 30240 events for 3 devices
 }
-$limit = isset($_GET['limit']) ? min(15000, max(1, (int)$_GET['limit'])) : $defaultLimit;
+$limit = isset($_GET['limit']) ? min(50000, max(1, (int)$_GET['limit'])) : $defaultLimit;
 $deviceId = $_GET['device_id'] ?? '';
 $eventType = $_GET['event_type'] ?? '';
 

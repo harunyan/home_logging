@@ -1307,7 +1307,7 @@
 
     async function fetchCloudData() {
       try {
-        const fetchLimit = (currentRange === '7d' || currentRange === 'all') ? 10000 : 5000;
+        const fetchLimit = (currentRange === '7d' || currentRange === 'all') ? 40000 : 6000;
         const url = `api/get_sensor.php?limit=${fetchLimit}&range=7d`;
         const res = await fetch(url);
         const data = await res.json();
@@ -1454,7 +1454,7 @@
       if (activeBtn) activeBtn.classList.add('active');
       syncStateToUrlAndStorage();
 
-      if ((range === '7d' || range === 'all') && cloudEvents.length < 5000) {
+      if ((range === '7d' || range === 'all') && cloudEvents.length < 20000) {
         fetchCloudData();
       } else {
         renderChart();
