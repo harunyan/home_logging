@@ -222,14 +222,30 @@ function calcDailyMealStats($db, $tDate) {
 // Calculate meal stats for the requested date
 $targetMealStats = calcDailyMealStats($db, $targetDate);
 
-// Calculate past 14 days meal tiles for interactive grid display
-$historyDays = isset($_GET['meal_days']) ? min(30, max(1, (int)$_GET['meal_days'])) : 14;
+// Find the earliest event date in database to avoid showing empty tiles before system start
+$oldestRow = $db->querySingle("SELECT MIN(timestamp) as min_ts, MIN(received_at) as min_rec FROM events WHERE timestamp IS NOT NULL OR received_at IS NOT NULL;", true);
+$oldestDateStr = date('Y-m-d');
+if ($oldestRow) {
+    $minTs = !empty($oldestRow['min_ts']) ? $oldestRow['min_ts'] : ($oldestRow['min_rec'] ?? null);
+    if ($minTs) {
+        $oldestDateStr = date('Y-m-d', strtotime($minTs));
+    }
+}
+
+// Calculate meal tiles only from today back to the earliest recorded date (up to 30 days)
+$maxHistoryDays = isset($_GET['meal_days']) ? min(60, max(1, (int)$_GET['meal_days'])) : 30;
 $dailyMealsTiles = [];
 $dayNames = ['日', '月', '火', '水', '木', '金', '土'];
 
-for ($i = 0; $i < $historyDays; $i++) {
+for ($i = 0; $i < $maxHistoryDays; $i++) {
     $timeSec = strtotime("-{$i} days");
     $dStr = date('Y-m-d', $timeSec);
+    
+    // Do not generate tiles for dates before the system was launched
+    if ($dStr < $oldestDateStr) {
+        break;
+    }
+
     $wIndex = (int)date('w', $timeSec);
     $wName = $dayNames[$wIndex];
     

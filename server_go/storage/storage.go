@@ -342,16 +342,25 @@ func (s *Storage) GetSummary(targetDateStr string) models.SummaryStats {
 	summary.TodayFoodEatenG = float64(int(summary.TodayFoodEatenG*10+0.5)) / 10
 	summary.MealSessions = mealSessions
 
-	// 3. Generate past 14 days meal tiles for interactive grid display
+	// 3. Generate past meal tiles back to the earliest recorded date
 	dayNames := []string{"日", "月", "火", "水", "木", "金", "土"}
 	todayStr := now.Format("2006-01-02")
 	targetDayStr := dayStart.Format("2006-01-02")
 
-	for i := 0; i < 14; i++ {
+	oldestDateStr := todayStr
+	if len(s.memoryCache) > 0 {
+		oldestDateStr = s.memoryCache[0].Timestamp.Format("2006-01-02")
+	}
+
+	for i := 0; i < 30; i++ {
 		tileDate := now.AddDate(0, 0, -i)
 		tileDateStart := time.Date(tileDate.Year(), tileDate.Month(), tileDate.Day(), 0, 0, 0, 0, tileDate.Location())
 		tileDateEnd := tileDateStart.Add(24 * time.Hour)
 		dStr := tileDateStart.Format("2006-01-02")
+
+		if dStr < oldestDateStr {
+			break
+		}
 		wName := dayNames[int(tileDateStart.Weekday())]
 
 		if dStr == targetDayStr {
