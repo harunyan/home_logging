@@ -1307,7 +1307,8 @@
 
     async function fetchCloudData() {
       try {
-        const url = `api/get_sensor.php?limit=1500&range=7d`;
+        const fetchLimit = (currentRange === '7d' || currentRange === 'all') ? 10000 : 5000;
+        const url = `api/get_sensor.php?limit=${fetchLimit}&range=7d`;
         const res = await fetch(url);
         const data = await res.json();
 
@@ -1445,13 +1446,19 @@
     }
 
     function setRange(range) {
+      const prevRange = currentRange;
       currentRange = range;
       timeOffsetMs = 0; // reset offset on range change
       document.querySelectorAll('.range-btn').forEach(b => b.classList.remove('active'));
       const activeBtn = document.getElementById(`range-${range}`);
       if (activeBtn) activeBtn.classList.add('active');
       syncStateToUrlAndStorage();
-      renderChart();
+
+      if ((range === '7d' || range === 'all') && cloudEvents.length < 5000) {
+        fetchCloudData();
+      } else {
+        renderChart();
+      }
     }
 
     function renderChart() {
