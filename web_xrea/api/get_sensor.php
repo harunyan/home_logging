@@ -276,7 +276,7 @@ $todaySql = "SELECT COUNT(*) as total_events,
 $summaryRow = $db->querySingle($todaySql, true);
 
 // Query latest environment for each distinct device (e.g. raspi4-feeder-01, raspizero-bedroom-01, etc.)
-$distinctDevicesSql = "SELECT DISTINCT device_id FROM events WHERE temperature_c IS NOT NULL AND temperature_c BETWEEN -20 AND 60;";
+$distinctDevicesSql = "SELECT DISTINCT device_id FROM events WHERE temperature_c IS NOT NULL AND temperature_c BETWEEN -20 AND 60 ORDER BY device_id ASC;";
 $devRes = $db->query($distinctDevicesSql);
 $latestEnvs = [];
 
@@ -285,12 +285,19 @@ while ($d = $devRes->fetchArray(SQLITE3_ASSOC)) {
     $escDevId = SQLite3::escapeString($devId);
     $row = $db->querySingle("SELECT device_id, temperature_c, humidity_pct, pressure_hpa, co2_ppm, timestamp, note FROM events WHERE device_id = '{$escDevId}' AND temperature_c IS NOT NULL AND temperature_c BETWEEN -20 AND 60 ORDER BY id DESC LIMIT 1;", true);
     if ($row) {
+        $co2Val = $row['co2_ppm'];
+        if ($co2Val === null) {
+            $co2Row = $db->querySingle("SELECT co2_ppm FROM events WHERE device_id = '{$escDevId}' AND co2_ppm IS NOT NULL ORDER BY id DESC LIMIT 1;", true);
+            if ($co2Row && isset($co2Row['co2_ppm'])) {
+                $co2Val = $co2Row['co2_ppm'];
+            }
+        }
         $latestEnvs[] = [
             'device_id'       => $row['device_id'],
             'temperature_c'   => $row['temperature_c'] !== null ? (float)$row['temperature_c'] : null,
             'humidity_pct'    => $row['humidity_pct'] !== null ? (float)$row['humidity_pct'] : null,
             'pressure_hpa'    => $row['pressure_hpa'] !== null ? (float)$row['pressure_hpa'] : null,
-            'co2_ppm'         => isset($row['co2_ppm']) && $row['co2_ppm'] !== null ? (float)$row['co2_ppm'] : null,
+            'co2_ppm'         => $co2Val !== null ? (float)$co2Val : null,
             'timestamp'       => $row['timestamp'],
             'note'            => $row['note'] ?? ''
         ];
@@ -301,6 +308,7 @@ while ($d = $devRes->fetchArray(SQLITE3_ASSOC)) {
 $latestFeeder = $db->querySingle("SELECT weight_g, timestamp FROM events WHERE (device_type = 'feeder' OR event_type = 'food_level') AND weight_g >= 0 AND weight_g <= 1000 ORDER BY id DESC LIMIT 1;", true);
 $latestScale  = $db->querySingle("SELECT weight_g, timestamp FROM events WHERE device_type = 'scale' AND weight_g >= 100 AND weight_g <= 20000 ORDER BY id DESC LIMIT 1;", true);
 $latestEnv    = $db->querySingle("SELECT temperature_c, humidity_pct, pressure_hpa, timestamp FROM events WHERE temperature_c IS NOT NULL AND temperature_c BETWEEN -20 AND 60 ORDER BY id DESC LIMIT 1;", true);
+$latestCo2    = $db->querySingle("SELECT co2_ppm, timestamp, device_id FROM events WHERE co2_ppm IS NOT NULL AND co2_ppm BETWEEN 350 AND 10000 ORDER BY id DESC LIMIT 1;", true);
 
 $response = [
     'status' => 'success',
@@ -313,7 +321,10 @@ $response = [
         'latest_temp_c'        => $latestEnv['temperature_c'] ?? null,
         'latest_humidity_pct'  => $latestEnv['humidity_pct'] ?? null,
         'latest_pressure_hpa'  => $latestEnv['pressure_hpa'] ?? null,
+        'latest_co2_ppm'       => isset($latestCo2['co2_ppm']) ? (float)$latestCo2['co2_ppm'] : null,
+        'latest_co2_time'      => $latestCo2['timestamp'] ?? null,
         'latest_env_time'      => $latestEnv['timestamp'] ?? null,
+        'latest_envs'          => $latestEnvs,
         'target_date'          => $targetDate,
         'today_meals_count'    => $targetMealStats['meals_count'],
         'today_food_eaten_g'   => $targetMealStats['food_eaten_g'],

@@ -236,6 +236,29 @@
       color: var(--accent-violet);
       font-size: 0.74rem;
     }
+    .env-chip-co2 {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.76rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 6px;
+      line-height: 1.2;
+    }
+    .card-header-co2 {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.74rem;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 12px;
+      margin-left: auto;
+      margin-right: 6px;
+      line-height: 1.3;
+      letter-spacing: 0.02em;
+    }
 
     /* Clickable Card */
     .card-clickable {
@@ -1143,7 +1166,9 @@
         <div class="card-subtext" id="sum-cat-time">未測定</div>
       </div>
       <div class="card" id="card-env-wrapper">
-        <div class="card-title"><span>室内温湿度 (ENV IV)</span> <span>🌡️</span></div>
+        <div class="card-title" id="sum-env-title">
+          <span>室内温湿度 & CO2 (ENV IV)</span> <span>🌡️</span>
+        </div>
         <div id="sum-env-container">
           <div class="card-value val-emerald" id="sum-env-temp">--.- <span style="font-size: 0.95rem; font-weight: normal;">°C</span></div>
           <div class="card-subtext" id="sum-env-sub">湿度: --% / 気圧: -- hPa</div>
@@ -1635,30 +1660,109 @@
 
       updateMealCard(s);
 
-      // Multi-device environment support in summary card
+      // Multi-device environment & CO2 support in summary card
       const envContainer = document.getElementById('sum-env-container');
       const envWrapper = document.getElementById('card-env-wrapper');
+      const envTitle = document.getElementById('sum-env-title');
+
+      // 1. Detect top/livingroom CO2 concentration
+      let topCo2Val = (s.latest_co2_ppm !== null && s.latest_co2_ppm !== undefined) ? Number(s.latest_co2_ppm) : null;
+      if (topCo2Val === null && s.latest_envs) {
+        const found = s.latest_envs.find(e => e.co2_ppm !== null && e.co2_ppm !== undefined);
+        if (found) topCo2Val = Number(found.co2_ppm);
+      }
+
+      // Update card title with prominent CO2 badge if available
+      if (envTitle) {
+        let co2HeaderBadge = '';
+        if (topCo2Val !== null) {
+          let badgeBg = 'rgba(52, 211, 153, 0.18)';
+          let badgeBorder = 'rgba(52, 211, 153, 0.4)';
+          let badgeColor = '#34d399';
+          let statusText = '良好';
+          let icon = '🍃';
+          if (topCo2Val >= 1500) {
+            badgeBg = 'rgba(244, 63, 94, 0.22)';
+            badgeBorder = 'rgba(244, 63, 94, 0.5)';
+            badgeColor = '#f43f5e';
+            statusText = '要換気';
+            icon = '🚨';
+          } else if (topCo2Val >= 1000) {
+            badgeBg = 'rgba(251, 146, 60, 0.22)';
+            badgeBorder = 'rgba(251, 146, 60, 0.5)';
+            badgeColor = '#fb923c';
+            statusText = '換気推奨';
+            icon = '⚠️';
+          }
+          co2HeaderBadge = `
+            <span class="card-header-co2" style="background: ${badgeBg}; border: 1px solid ${badgeBorder}; color: ${badgeColor};" title="リビングの最新CO2濃度">
+              ${icon} リビングCO2: <strong>${topCo2Val.toFixed(0)} ppm</strong> (${statusText})
+            </span>
+          `;
+        }
+        envTitle.innerHTML = `
+          <div style="display: flex; align-items: center; width: 100%;">
+            <span>室内温湿度 (ENV IV)</span>
+            ${co2HeaderBadge}
+            <span>🌡️</span>
+          </div>
+        `;
+      }
       
       if (s.latest_envs && s.latest_envs.length > 1) {
         envWrapper.classList.add('card-env-multi');
+
+        // Order: ケージ(feeder) -> 寝室(bedroom) -> リビング(livingroom)
+        const sortedEnvs = [...s.latest_envs].sort((a, b) => {
+          const rank = (id) => {
+            if (id.includes('feeder')) return 1;
+            if (id.includes('bedroom')) return 2;
+            if (id.includes('living')) return 3;
+            return 4;
+          };
+          return rank(a.device_id) - rank(b.device_id);
+        });
+
         envContainer.innerHTML = `
           <div class="env-chips-list">
-            ${s.latest_envs.map(env => {
-              const devName = env.note ? env.note : env.device_id;
+            ${sortedEnvs.map(env => {
+              const devName = env.note ? env.note : getDeviceFriendlyName(env.device_id);
               const tempStr = env.temperature_c !== null ? `${env.temperature_c.toFixed(1)}°C` : '--.-°C';
               const humStr = env.humidity_pct !== null ? `${env.humidity_pct.toFixed(0)}%` : '--%';
               const pressStr = env.pressure_hpa !== null ? `${env.pressure_hpa.toFixed(0)}hPa` : '--hPa';
-              const co2Str = (env.co2_ppm !== null && env.co2_ppm !== undefined)
-                ? `<span class="env-chip-co2" style="color: ${env.co2_ppm > 1500 ? '#f43f5e' : (env.co2_ppm > 1000 ? '#fb923c' : '#34d399')}; font-weight: 600;">🍃 ${env.co2_ppm.toFixed(0)}ppm</span>`
-                : '';
-              const dt = new Date(env.timestamp);
+
+              let co2Badge = '';
+              if (env.co2_ppm !== null && env.co2_ppm !== undefined) {
+                const cVal = Number(env.co2_ppm);
+                let cBg = 'rgba(52, 211, 153, 0.18)';
+                let cBorder = 'rgba(52, 211, 153, 0.45)';
+                let cColor = '#34d399';
+                let cIcon = '🍃';
+                if (cVal >= 1500) {
+                  cBg = 'rgba(244, 63, 94, 0.22)';
+                  cBorder = 'rgba(244, 63, 94, 0.55)';
+                  cColor = '#f43f5e';
+                  cIcon = '🚨';
+                } else if (cVal >= 1000) {
+                  cBg = 'rgba(251, 146, 60, 0.22)';
+                  cBorder = 'rgba(251, 146, 60, 0.55)';
+                  cColor = '#fb923c';
+                  cIcon = '⚠️';
+                }
+                co2Badge = `
+                  <span class="env-chip-co2" style="background: ${cBg}; border: 1px solid ${cBorder}; color: ${cColor}; font-weight: 700;">
+                    ${cIcon} CO2: ${cVal.toFixed(0)}ppm
+                  </span>
+                `;
+              }
+
               return `
                 <div class="env-chip-row">
                   <span class="env-chip-name">📍 ${escapeHtml(devName)}</span>
                   <div class="env-chip-data">
                     <span class="env-chip-temp">${tempStr}</span>
                     <span class="env-chip-hum">💧 ${humStr}</span>
-                    ${co2Str}
+                    ${co2Badge}
                     <span class="env-chip-press">⏱️ ${pressStr}</span>
                   </div>
                 </div>
@@ -1674,9 +1778,13 @@
         if (s.latest_envs && s.latest_envs.length === 1 && s.latest_envs[0].note) {
           devLabel = ` (${s.latest_envs[0].note})`;
         }
+        let singleCo2Str = '';
+        if (topCo2Val !== null) {
+          singleCo2Str = ` / 🍃 CO2: ${topCo2Val.toFixed(0)}ppm`;
+        }
         envContainer.innerHTML = `
           <div class="card-value val-emerald">${Number(s.latest_temp_c).toFixed(1)} <span style="font-size: 0.95rem; font-weight: normal;">°C</span></div>
-          <div class="card-subtext">湿度: ${humStr} / 気圧: ${pressStr}${escapeHtml(devLabel)}</div>
+          <div class="card-subtext">湿度: ${humStr} / 気圧: ${pressStr}${singleCo2Str}${escapeHtml(devLabel)}</div>
         `;
       }
 

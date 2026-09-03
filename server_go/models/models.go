@@ -85,6 +85,8 @@ type SummaryStats struct {
 	LatestTempC        *float64        `json:"latest_temp_c,omitempty"`
 	LatestHumidityPct  *float64        `json:"latest_humidity_pct,omitempty"`
 	LatestPressureHpa  *float64        `json:"latest_pressure_hpa,omitempty"`
+	LatestCo2Ppm       *float64        `json:"latest_co2_ppm,omitempty"`
+	LatestCo2Time      time.Time       `json:"latest_co2_time,omitempty"`
 	LatestEnvTime      time.Time       `json:"latest_env_time,omitempty"`
 	LatestEnvs         []EnvReading    `json:"latest_envs,omitempty"`
 	ActiveDevicesCount int             `json:"active_devices_count"`

@@ -452,7 +452,7 @@ func (s *Storage) GetSummary(targetDateStr string) models.SummaryStats {
 		}
 	}
 
-	// 4. Collect latest environment reading for each distinct device
+	// 4. Collect latest environment reading for each distinct device and global latest CO2
 	latestEnvMap := make(map[string]models.EnvReading)
 	for _, ev := range s.memoryCache {
 		if ev.TemperatureC != nil || ev.HumidityPct != nil {
@@ -467,6 +467,12 @@ func (s *Storage) GetSummary(targetDateStr string) models.SummaryStats {
 					Timestamp:    ev.Timestamp,
 					Note:         ev.Note,
 				}
+			}
+		}
+		if ev.CO2Ppm != nil && *ev.CO2Ppm >= 350 && *ev.CO2Ppm <= 10000 {
+			if summary.LatestCo2Ppm == nil || ev.Timestamp.After(summary.LatestCo2Time) {
+				summary.LatestCo2Ppm = ev.CO2Ppm
+				summary.LatestCo2Time = ev.Timestamp
 			}
 		}
 	}
